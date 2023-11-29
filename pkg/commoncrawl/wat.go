@@ -104,7 +104,7 @@ var (
 )
 
 // ParseWatByLine - parse wat file line by line and store links in file
-func ParseWatByLine(filePath string, dirOut string) error {
+func ParseWatByLine(filePath string, dirOut string, savePage bool) error {
 
 	//prepare ignore domains and extensions map - load only when empty
 	if len(ignoreDomains) == 0 {
@@ -237,11 +237,15 @@ func ParseWatByLine(filePath string, dirOut string) error {
 		return err
 	}
 
-	//saving page file and reseting pageMap
-	err = savePageFile(fileID, dirOut, pageMap)
-	if err != nil {
-		return err
+	if savePage == true {
+		//saving page file and reseting pageMap
+		err = savePageFile(fileID, dirOut, pageMap)
+		if err != nil {
+			return err
+		}
 	}
+	//reset pageMap
+	pageMap = make(map[string]FilePage)
 
 	// Check for errors during scanning
 	if err := scanner.Err(); err != nil {
@@ -442,6 +446,21 @@ func validateHost(host string) bool {
 		strings.Contains(host, "]") ||
 		strings.Contains(host, "=") ||
 		strings.Contains(host, "'") ||
+		strings.Contains(host, ":") ||
+		strings.Contains(host, "*") ||
+		strings.Contains(host, "(") ||
+		strings.Contains(host, ")") ||
+		strings.Contains(host, "<") ||
+		strings.Contains(host, ">") ||
+		strings.Contains(host, "&") ||
+		strings.Contains(host, "!") ||
+		strings.Contains(host, "+") ||
+		strings.Contains(host, "`") ||
+		strings.Contains(host, ",") ||
+		strings.Contains(host, "}") ||
+		strings.Contains(host, "{") ||
+		strings.Contains(host, "$") ||
+		strings.Contains(host, "\"") ||
 		strings.Contains(host, ":") ||
 		strings.Contains(host, ";") {
 		return false
@@ -701,16 +720,16 @@ func ExtractWatFileNumber(filename string) (string, error) {
 
 // savePageFile - save pages info to file
 func savePageFile(fileID string, dirOut string, pageMap map[string]FilePage) error {
-	fileOutPage, err := os.OpenFile(dirOut+"/page/"+fileID+".txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	fileOutPage, err := os.OpenFile(dirOut+"/page/page"+fileID+".txt.gz", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Printf("Error opening page file: %s\n", err)
 		return err
 	}
 	defer fileOutPage.Close()
-	writerPage := bufio.NewWriter(fileOutPage)
+	writerPage := gzip.NewWriter(fileOutPage)
 
 	for _, content := range pageMap {
-		_, err = writerPage.WriteString(fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n",
+		_, err = writerPage.Write([]byte(fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n",
 			content.Host,
 			content.Path,
 			content.RawQuery,
@@ -721,13 +740,13 @@ func savePageFile(fileID string, dirOut string, pageMap map[string]FilePage) err
 			strconv.Itoa(content.InternalLinks),
 			strconv.Itoa(content.ExternalLinks),
 			strconv.Itoa(content.NoIndex),
-		))
+		)))
 		if err != nil {
 			return err
 		}
 	}
 
-	err = writerPage.Flush()
+	err = writerPage.Close()
 	if err != nil {
 		return err
 	}
@@ -744,20 +763,20 @@ func saveLinkFile(fileID string, dirOut string, linkMap map[string]FileLink, pag
 	sortableFileLinkSlice := sortFileLink(linkMap)
 
 	// Open the file for writing, create it if not exists, append to it if it does.
-	fileOut, err := os.OpenFile(dirOut+"/"+fileID+".txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	fileOut, err := os.OpenFile(dirOut+"/"+fileID+".txt.gz", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Printf("Error opening file: %s\n", err)
 		return err
 	}
 	defer fileOut.Close()
-	writer := bufio.NewWriter(fileOut)
+	writer := gzip.NewWriter(fileOut)
 
 	for _, item := range sortableFileLinkSlice {
 		content := linkMap[item.Key]
 
 		page := pageMap[content.PageHash]
 
-		_, err = writer.WriteString(fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%d|%d|%s|%s\n",
+		_, err = writer.Write([]byte(fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%d|%d|%s|%s\n",
 			content.LinkDomain,
 			content.LinkSubDomain,
 			content.LinkPath,
@@ -772,7 +791,7 @@ func saveLinkFile(fileID string, dirOut string, linkMap map[string]FileLink, pag
 			page.NoIndex,
 			page.Imported,
 			page.IP,
-		))
+		)))
 		if err != nil {
 			return err
 		}
@@ -780,7 +799,7 @@ func saveLinkFile(fileID string, dirOut string, linkMap map[string]FileLink, pag
 	}
 
 	// Flush the buffer to disk
-	err = writer.Flush()
+	err = writer.Close()
 	if err != nil {
 		return err
 	}
