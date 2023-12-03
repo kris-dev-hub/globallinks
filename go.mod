@@ -7,7 +7,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/klauspost/compress v1.17.3
 	github.com/tidwall/gjson v1.17.0
-	golang.org/x/net v0.17.0
+	golang.org/x/net v0.19.0
 )
 
 require (
@@ -15,4 +15,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
+	golang.org/x/mod v0.14.0 // indirect
+	golang.org/x/tools v0.16.0 // indirect
 )

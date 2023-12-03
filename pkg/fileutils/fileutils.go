@@ -19,7 +19,6 @@ func FileExists(filename string) bool {
 }
 
 func DownloadFile(url, outputPath string, maxRetries int) error {
-
 	var resp *http.Response
 	var err error
 	retryDelay := 3 * time.Second
@@ -64,7 +63,6 @@ func DownloadFile(url, outputPath string, maxRetries int) error {
 	}
 
 	return nil
-
 }
 
 func ReadGZFileByLine(filePath string) ([]string, error) {

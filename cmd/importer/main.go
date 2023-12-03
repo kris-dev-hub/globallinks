@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"compress/gzip"
 	"fmt"
-	"github.com/kris-dev-hub/globallinks/pkg/commoncrawl"
-	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
 	"log"
 	"os"
 	"os/exec"
@@ -13,12 +11,20 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+
+	"github.com/kris-dev-hub/globallinks/pkg/commoncrawl"
+	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
 )
 
 // save sorting output in gz file, don't generate page file
 const stopOnSort = true
 
 const savePageData = true
+
+const (
+	extensionTxtGz = ".txt.gz"
+	linkDir        = "/link/"
+)
 
 func main() {
 	var err error
@@ -55,7 +61,7 @@ func main() {
 
 	for i := 0; i < len(segmentList); i++ {
 
-		//select segment to import
+		// select segment to import
 		segment, err := commoncrawl.SelectSegmentToImport(segmentList)
 		if err != nil {
 			log.Printf("Could not select segment to import: %v\n", err)
@@ -71,7 +77,6 @@ func main() {
 
 	//	fmt.Println("Importing segment: ", segment)
 	//	fmt.Println("dataDir: ", dataDir)
-
 }
 
 func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, segmentList *[]commoncrawl.WatSegment, maxThreads int, maxWatFiles *int) {
@@ -80,7 +85,7 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 	guard := make(chan struct{}, maxThreads) // limits the number of goroutines running at once
 	var wg sync.WaitGroup
 
-	//save info that segment was started
+	// save info that segment was started
 	err = commoncrawl.UpdateSegmentImportStart(segmentList, segment.Segment)
 	if err != nil {
 		panic(fmt.Sprintf("%s: %v", segment.Segment, err))
@@ -88,17 +93,17 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 
 	for _, watFile := range segment.WatFiles {
 
-		//ignore imported files
+		// ignore imported files
 		if watFile.Imported != nil {
 			continue
 		}
 
-		linkFile := dataDir.TmpDir + "/" + segment.Segment + "/link/" + watFile.Number + ".txt.gz"
+		linkFile := dataDir.TmpDir + "/" + segment.Segment + linkDir + watFile.Number + extensionTxtGz
 		err := fileutils.CreateDataDirectory(filepath.Dir(linkFile))
 		if err != nil {
 			panic(fmt.Sprintf("Failed to create link file: %v", err))
 		}
-		pageFile := dataDir.TmpDir + "/" + segment.Segment + "/page/" + watFile.Number + ".txt.gz"
+		pageFile := dataDir.TmpDir + "/" + segment.Segment + "/page/" + watFile.Number + extensionTxtGz
 		if savePageData == true {
 			err = fileutils.CreateDataDirectory(filepath.Dir(pageFile))
 			if err != nil {
@@ -109,7 +114,7 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 		recordWatFile := dataDir.TmpDir + "/wat/" + filepath.Base(watFile.Path)
 
 		if fileutils.FileExists(linkFile) {
-			//update segmentList with imported files info
+			// update segmentList with imported files info
 			err = commoncrawl.UpdateSegmentLinkImportStatus(segmentList, segment.Segment, recordWatFile)
 			if err != nil {
 				panic(fmt.Sprintf("%s: %v", segment.Segment, err))
@@ -155,7 +160,7 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 				log.Fatalf("Could not open WAT file: %v", err)
 			}
 
-			//save info that this file was parsed
+			// save info that this file was parsed
 			err = commoncrawl.UpdateSegmentLinkImportStatus(segmentList, segment.Segment, recordWatFile)
 			if err != nil {
 				panic(fmt.Sprintf("%s: %v", segment.Segment, err))
@@ -165,30 +170,28 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 			if err != nil {
 				log.Fatalf("Could not delete file: %v", err)
 			}
-
 		}(recordWatFile, linkFile, pageFile)
 
 	}
 	wg.Wait() // This will block until all goroutines have called wg.Done()
 
-	//sort the file
+	// sort the file
 	watFilesLeftQty := commoncrawl.CountFilesInSegmentToProcess(segment)
-	segmentSorted := dataDir.LinksDir + "/_sort_" + strconv.Itoa(segment.SegmentID) + ".txt.gz"
+	segmentSorted := dataDir.LinksDir + "/_sort_" + strconv.Itoa(segment.SegmentID) + extensionTxtGz
 	fmt.Println(watFilesLeftQty)
 	if !fileutils.FileExists(segmentSorted) && watFilesLeftQty == 0 {
-
-		//just save sorted data in gzip file and exit
+		// just save sorted data in gzip file and exit
 		if stopOnSort == true {
-			err = sortOutFilesWithBashGz(segmentSorted, dataDir.TmpDir+"/"+segment.Segment+"/link/")
+			err = sortOutFilesWithBashGz(segmentSorted, dataDir.TmpDir+"/"+segment.Segment+linkDir)
 			if err != nil {
 				log.Fatalf("Could not sort file: %v", err)
 			}
-			//TODO also delete link directory and segment if it is empty
-			err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + "/link/")
+			// TODO also delete link directory and segment if it is empty
+			err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + linkDir)
 			if err != nil {
 				log.Fatalf("Could not delete WAT processed files: %v", err)
 			}
-			//save info that segment was finished
+			// save info that segment was finished
 			err = commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
 			if err != nil {
 				panic(fmt.Sprintf("%s: %v", segment.Segment, err))
@@ -224,7 +227,6 @@ func isCorrectArchiveFormat(s string) bool {
 
 // setMaxThreads sets the maximum number of threads to use for processing. Every thread need around 1,5GB of RAM
 func setMaxThreads() int {
-
 	envVar := "GLOBALLINKS_MAXTHREADS"
 	defaultVal := 1
 	minVal := 1
@@ -251,7 +253,6 @@ func setMaxThreads() int {
 
 // setMaxWATFiles sets the maximum number WAT files in one go. Every WAT file need around 30sec per i5-9300H core to process
 func setMaxWATFiles() int {
-
 	envVar := "GLOBALLINKS_MAXWATFILES"
 	defaultVal := 1
 	minVal := 1
@@ -278,7 +279,6 @@ func setMaxWATFiles() int {
 
 // setDataDirectory set directory for datafiles
 func setDataDirectory() string {
-
 	envVar := "GLOBALLINKS_DATAPATH"
 	defaultVal := "data"
 
@@ -292,7 +292,6 @@ func setDataDirectory() string {
 
 // sortOutFilesWithBashGz - sort the file with bash sort and save as gz with segment in name - you can use these segments to move pre processed data to other server
 func sortOutFilesWithBashGz(segmentSortedFile string, segmentLinksDir string) error {
-
 	cmdStr := "zcat " + segmentLinksDir + "/*.txt.gz | sort -u -S 2G | gzip > " + segmentSortedFile
 
 	// Execute the command
@@ -308,7 +307,6 @@ func sortOutFilesWithBashGz(segmentSortedFile string, segmentLinksDir string) er
 //
 //nolint:unused
 func splitProcessedData(sortFile string, dirOut string) error {
-
 	file, err := os.Open(sortFile)
 	if err != nil {
 		return err
@@ -338,12 +336,12 @@ func splitProcessedData(sortFile string, dirOut string) error {
 				currentFile.Close()
 			}
 
-			if err := os.MkdirAll(dirPath, 0755); err != nil {
+			if err := os.MkdirAll(dirPath, 0o755); err != nil {
 				return err
 			}
 
 			fileName := dirPath + "/" + prefix + ".gz"
-			currentFile, err = os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			currentFile, err = os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 			if err != nil {
 				return err
 			}
@@ -368,7 +366,6 @@ func splitProcessedData(sortFile string, dirOut string) error {
 	}
 
 	return nil
-
 }
 
 // deleteWatPreProcessed - Delete files build during WAT processing
