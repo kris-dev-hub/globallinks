@@ -207,26 +207,24 @@ func InitImport(archiveName string) ([]WatSegment, error) {
 
 func CreateDataDir(defaultDir string) (DataDir, error) {
 	var err error
-	var dataDir DataDir
+	var dataDir = DataDir{defaultDir, defaultDir + "/tmp", defaultDir + "/links", defaultDir + "/pages"}
 
-	dataDir = DataDir{defaultDir, defaultDir + "/tmp", defaultDir + "/links", defaultDir + "/pages"}
-
-	fileutils.CreateDataDirectory(dataDir.DataDir)
+	err = fileutils.CreateDataDirectory(dataDir.DataDir)
 	if err != nil {
 		log.Fatalf("Could not create data directory: %v", err)
 	}
 
-	fileutils.CreateDataDirectory(dataDir.TmpDir)
+	err = fileutils.CreateDataDirectory(dataDir.TmpDir)
 	if err != nil {
 		log.Fatalf("Could not create tmp directory: %v", err)
 	}
 
-	fileutils.CreateDataDirectory(dataDir.LinksDir)
+	err = fileutils.CreateDataDirectory(dataDir.LinksDir)
 	if err != nil {
 		log.Fatalf("Could not create tmp directory: %v", err)
 	}
 
-	fileutils.CreateDataDirectory(dataDir.PagesDir)
+	err = fileutils.CreateDataDirectory(dataDir.PagesDir)
 	if err != nil {
 		log.Fatalf("Could not create tmp directory: %v", err)
 	}
@@ -298,11 +296,11 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 			urlRecord = UrlRecord{}
 			sourceUrl := strings.TrimSpace(line[17:])
 			validRecord := buildUrlRecord(sourceUrl, &urlRecord)
-			if validRecord == false {
+			if !validRecord {
 				validPage = false
 				continue
 			}
-			if verifyRecordQuality(&urlRecord) == false {
+			if !verifyRecordQuality(&urlRecord) {
 				validPage = false
 				continue
 			}
@@ -311,7 +309,7 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 		}
 
 		//read content of record - only when we have proper record header - validPage = true
-		if validPage == true && strings.HasPrefix(line, "{") && strings.Contains(line, "href") {
+		if validPage && strings.HasPrefix(line, "{") && strings.Contains(line, "href") {
 			validPage = false
 			content := readPageContent(line, &urlRecord)
 			if content == nil {
@@ -368,15 +366,13 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 		return err
 	}
 
-	if savePage == true {
+	if savePage {
 		//saving page file and reseting pageMap
 		err = savePageFile(fileID, pageFile, pageMap)
 		if err != nil {
 			return err
 		}
 	}
-	//reset pageMap
-	pageMap = make(map[string]FilePage)
 
 	// Check for errors during scanning
 	if err := scanner.Err(); err != nil {
@@ -423,7 +419,7 @@ func readPageContent(line string, sourceUrlRecord *UrlRecord) *WatPage {
 	watPage.NoFollow = &nofollow
 
 	//ignore pages with content problems like chinese characters in headers etc., rel canonical problems, etc.
-	if verifyContentQuality(&parsedJSON, &watPage) == false {
+	if !verifyContentQuality(&parsedJSON, &watPage) {
 		return nil
 	}
 
@@ -447,6 +443,7 @@ func getNoFollowNoIndex(metas string) (int, int) {
 
 	var metaDataArray []MetaData
 	err := jsoniter.Unmarshal([]byte(metas), &metaDataArray)
+	//nolint:staticcheck
 	if err != nil {
 		//if we can not parse json noindex and nofollow are probably not set, so we can ignore it
 	}
@@ -482,6 +479,7 @@ func parseLinks(links string, sourceUrlRecord *UrlRecord, pageNoFollow int) ([]U
 
 	var linksArray []LinkInfo
 	err := jsoniter.Unmarshal([]byte(links), &linksArray)
+	//nolint:staticcheck
 	if err != nil {
 		//probably something is wrong in exported file, ignore for now
 	}
@@ -494,7 +492,7 @@ func parseLinks(links string, sourceUrlRecord *UrlRecord, pageNoFollow int) ([]U
 			continue
 		}
 		//ignore links without http, https or //
-		if strings.HasPrefix(linkData.URL, "http") == false && strings.HasPrefix(linkData.URL, "//") == false {
+		if !strings.HasPrefix(linkData.URL, "http") && !strings.HasPrefix(linkData.URL, "//") {
 			internalLinks++
 			continue
 		}
@@ -507,7 +505,7 @@ func parseLinks(links string, sourceUrlRecord *UrlRecord, pageNoFollow int) ([]U
 			NoFollow: &noFollow,
 		}
 		validRecord := buildUrlRecord(linkData.URL, &urlRecord)
-		if validRecord == false {
+		if !validRecord {
 			continue
 		}
 
@@ -523,7 +521,7 @@ func parseLinks(links string, sourceUrlRecord *UrlRecord, pageNoFollow int) ([]U
 			continue
 		}
 
-		if verifyRecordQuality(&urlRecord) == false {
+		if !verifyRecordQuality(&urlRecord) {
 			externalLinks++
 			continue
 		}
@@ -533,7 +531,7 @@ func parseLinks(links string, sourceUrlRecord *UrlRecord, pageNoFollow int) ([]U
 			continue
 		}
 
-		if isIgnoredDomain(*urlRecord.Domain) == true {
+		if isIgnoredDomain(*urlRecord.Domain) {
 			externalLinks++
 			continue
 		}
@@ -554,11 +552,11 @@ func verifyRecordQuality(record *UrlRecord) bool {
 	}
 
 	//ignore blocked TLD
-	if ignoreTLD(*record.Domain) == true {
+	if ignoreTLD(*record.Domain) {
 		return false
 	}
 	//validate problems with host
-	if validateHost(*record.Host) == false {
+	if !validateHost(*record.Host) {
 		return false
 	}
 
@@ -598,7 +596,7 @@ func validateHost(host string) bool {
 	}
 
 	//ignore IP addresses - there is no external validation function to make it faster
-	if ipRegex.MatchString(host) == true {
+	if ipRegex.MatchString(host) {
 		return false
 	}
 
@@ -653,7 +651,7 @@ func buildUrlRecord(sourceUrl string, urlRecord *UrlRecord) bool {
 	urlRecord.RawQuery = &parsedURL.RawQuery
 
 	//ignore query starting with
-	if ignoreQuery(*urlRecord.RawQuery) == true {
+	if ignoreQuery(*urlRecord.RawQuery) {
 		emptyString := ""
 		urlRecord.RawQuery = &emptyString
 	}
@@ -664,7 +662,7 @@ func buildUrlRecord(sourceUrl string, urlRecord *UrlRecord) bool {
 	domainCacheMutex.RLock()
 	domain, exists := domainCache[*urlRecord.Host]
 	domainCacheMutex.RUnlock()
-	if exists == false {
+	if !exists {
 		domain, err = publicsuffix.EffectiveTLDPlusOne(*urlRecord.Host)
 		if err != nil {
 			return false
@@ -752,7 +750,7 @@ func verifyContentQuality(parsedJSON *gjson.Result, watPage *WatPage) bool {
 	}
 
 	//ignore pages with canonical link pointing to other page
-	if checkPageCanonicalLink(parsedJSON, watPage) == false {
+	if !checkPageCanonicalLink(parsedJSON, watPage) {
 		return false
 	}
 	return true
@@ -774,6 +772,7 @@ func checkPageCanonicalLink(parsedJSON *gjson.Result, watPage *WatPage) bool {
 	if len(headLinksData) > 0 {
 
 		err := jsoniter.Unmarshal([]byte(headLinksData), &links)
+		//nolint:staticcheck
 		if err != nil {
 			//probably something is wrong in exported file, ignore for now
 		}
@@ -882,9 +881,6 @@ func savePageFile(fileID string, pageFile string, pageMap map[string]FilePage) e
 		return err
 	}
 
-	//reset pageMap
-	pageMap = make(map[string]FilePage)
-
 	return nil
 }
 
@@ -934,9 +930,6 @@ func saveLinkFile(fileID string, linkFile string, linkMap map[string]FileLink, p
 	if err != nil {
 		return err
 	}
-
-	//reset linkMap
-	linkMap = make(map[string]FileLink)
 
 	return nil
 }
@@ -1024,10 +1017,10 @@ func UpdateSegmentLinkImportStatus(segmentList *[]WatSegment, segmentName string
 			}
 		}
 	}
-	return nil
+	return errors.New("segment or link not found")
 }
 
-// UpdateSegmentImportStart - update segment mport status
+// UpdateSegmentImportStart - update segment import status
 func UpdateSegmentImportStart(segmentList *[]WatSegment, segmentName string) error {
 
 	for idSegment, segment := range *segmentList {
@@ -1039,7 +1032,7 @@ func UpdateSegmentImportStart(segmentList *[]WatSegment, segmentName string) err
 			return nil
 		}
 	}
-	return nil
+	return errors.New("segment not found")
 }
 
 // UpdateSegmentImportEnd - update segment mport status

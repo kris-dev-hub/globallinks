@@ -29,27 +29,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	if isCorrectArchiveFormat(os.Args[1]) != true {
+	if !isCorrectArchiveFormat(os.Args[1]) {
 		fmt.Println("Invalid archive name")
 		os.Exit(1)
 	}
 
 	archiveName = os.Args[1]
-	////	maxThreads := setMaxThreads()
+	maxThreads := setMaxThreads()
 	maxWatFiles := setMaxWATFiles()
 	defaultDir := setDataDirectory()
 
 	// import segment information
 	segmentList, err := commoncrawl.InitImport(archiveName)
 	if err != nil {
-		log.Println("Could not load segment list: %v", err)
+		log.Printf("Could not load segment list: %v\n", err)
 		os.Exit(1)
 	}
 
 	// create data directories
 	dataDir, err := commoncrawl.CreateDataDir(defaultDir)
 	if err != nil {
-		log.Println("Could not create data directory: %v", err)
+		log.Printf("Could not create data directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -58,14 +58,14 @@ func main() {
 		//select segment to import
 		segment, err := commoncrawl.SelectSegmentToImport(segmentList)
 		if err != nil {
-			log.Println("Could not select segment to import: %v", err)
+			log.Printf("Could not select segment to import: %v\n", err)
 			os.Exit(1)
 		}
 
 		// parse only unfinished segments
 		if segment.ImportEnded == nil {
 			fmt.Printf("Importing segment %s\n", segment.Segment)
-			importSegment(segment, dataDir, &segmentList, maxWatFiles, &maxWatFiles)
+			importSegment(segment, dataDir, &segmentList, maxThreads, &maxWatFiles)
 		}
 	}
 
@@ -81,7 +81,10 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 	var wg sync.WaitGroup
 
 	//save info that segment was started
-	commoncrawl.UpdateSegmentImportStart(segmentList, segment.Segment)
+	err = commoncrawl.UpdateSegmentImportStart(segmentList, segment.Segment)
+	if err != nil {
+		panic(fmt.Sprintf("%s: %v", segment.Segment, err))
+	}
 
 	for _, watFile := range segment.WatFiles {
 
@@ -105,9 +108,12 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 
 		recordWatFile := dataDir.TmpDir + "/wat/" + filepath.Base(watFile.Path)
 
-		if fileutils.FileExists(linkFile) == true {
+		if fileutils.FileExists(linkFile) {
 			//update segmentList with imported files info
-			commoncrawl.UpdateSegmentLinkImportStatus(segmentList, segment.Segment, recordWatFile)
+			err = commoncrawl.UpdateSegmentLinkImportStatus(segmentList, segment.Segment, recordWatFile)
+			if err != nil {
+				panic(fmt.Sprintf("%s: %v", segment.Segment, err))
+			}
 			continue
 		}
 
@@ -126,7 +132,7 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 		if err != nil {
 			panic(fmt.Sprintf("Failed to create file: %v", err))
 		}
-		if fileutils.FileExists(recordWatFile) != true {
+		if !fileutils.FileExists(recordWatFile) {
 			err := fileutils.DownloadFile("https://data.commoncrawl.org/"+watFile.Path, recordWatFile, 1)
 			if err != nil {
 				log.Fatalf("Could not load WAT file %s: %v", watFile.Path, err)
@@ -150,7 +156,10 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 			}
 
 			//save info that this file was parsed
-			commoncrawl.UpdateSegmentLinkImportStatus(segmentList, segment.Segment, recordWatFile)
+			err = commoncrawl.UpdateSegmentLinkImportStatus(segmentList, segment.Segment, recordWatFile)
+			if err != nil {
+				panic(fmt.Sprintf("%s: %v", segment.Segment, err))
+			}
 
 			err = os.Remove(recordFile)
 			if err != nil {
@@ -180,7 +189,10 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 				log.Fatalf("Could not delete WAT processed files: %v", err)
 			}
 			//save info that segment was finished
-			commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
+			err = commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
+			if err != nil {
+				panic(fmt.Sprintf("%s: %v", segment.Segment, err))
+			}
 
 		}
 		/* TODO: this must be moved to separate process
@@ -206,13 +218,6 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 // isCorrectArchiveFormat checks if the archive name is in the correct format
 func isCorrectArchiveFormat(s string) bool {
 	pattern := `^CC-MAIN-\d{4}-\d{2}$`
-	match, _ := regexp.MatchString(pattern, s)
-	return match
-}
-
-// isCorrectSegmentFormat checks if the segment name is in the correct format
-func isCorrectSegmentFormat(s string) bool {
-	pattern := `^20\d{12}$`
 	match, _ := regexp.MatchString(pattern, s)
 	return match
 }
@@ -300,6 +305,8 @@ func sortOutFilesWithBashGz(segmentSortedFile string, segmentLinksDir string) er
 }
 
 // split data into many files sorted by domain names
+//
+//nolint:unused
 func splitProcessedData(sortFile string, dirOut string) error {
 
 	file, err := os.Open(sortFile)
