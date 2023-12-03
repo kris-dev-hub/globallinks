@@ -57,13 +57,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// update information about imported segments
+	commoncrawl.ValidateSegmentImportEndAtStart(&segmentList, dataDir, extensionTxtGz)
+
+	fmt.Printf("Importing %d segments\n", len(segmentList))
+
 	for i := 0; i < len(segmentList); i++ {
 
 		// select segment to import
 		segment, err := commoncrawl.SelectSegmentToImport(segmentList)
 		if err != nil {
 			log.Printf("Could not select segment to import: %v\n", err)
-			os.Exit(1)
+			os.Exit(0)
 		}
 
 		// parse only unfinished segments
@@ -72,7 +77,6 @@ func main() {
 			importSegment(segment, dataDir, &segmentList, maxThreads, &maxWatFiles)
 		}
 	}
-
 }
 
 func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, segmentList *[]commoncrawl.WatSegment, maxThreads int, maxWatFiles *int) {

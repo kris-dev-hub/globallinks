@@ -117,7 +117,6 @@ func CreateDataDirectory(dirOut string) error {
 }
 
 func DeleteDirectoryIfEmpty(dirPath string) error {
-
 	// Check if the directory is empty
 	remainingFiles, err := filepath.Glob(filepath.Join(dirPath, "*"))
 	if err != nil {

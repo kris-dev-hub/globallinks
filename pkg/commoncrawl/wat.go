@@ -185,7 +185,7 @@ func InitImport(archiveName string) ([]WatSegment, error) {
 		// TODO: this is just a test with collecting only 4 links
 		i := 0
 		for _, file := range fileList {
-			if i >= 4 {
+			if i >= 2 {
 				break
 			}
 			fileNumber, err = ExtractWatFileNumber(file)
@@ -1035,4 +1035,16 @@ func UpdateSegmentImportEnd(segmentList *[]WatSegment, segmentName string) error
 		}
 	}
 	return nil
+}
+
+// ValidateSegmentImportEndAtStart - validate segment import status
+func ValidateSegmentImportEndAtStart(segmentList *[]WatSegment, dataDir DataDir, extensionTxtGz string) {
+	for i, segment := range *segmentList {
+		linkSegmentSorted := dataDir.LinksDir + "/sort_" + strconv.Itoa(segment.SegmentID) + extensionTxtGz
+		if fileutils.FileExists(linkSegmentSorted) {
+			fmt.Println("!!!Segment " + segment.Segment + " already imported!!!")
+			now := time.Now()
+			(*segmentList)[i].ImportEnded = &now
+		}
+	}
 }
