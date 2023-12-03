@@ -16,14 +16,12 @@ import (
 	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
 )
 
-// save sorting output in gz file, don't generate page file
-const stopOnSort = true
-
 const savePageData = true
 
 const (
 	extensionTxtGz = ".txt.gz"
 	linkDir        = "/link/"
+	pageDir        = "/page/"
 )
 
 func main() {
@@ -75,8 +73,6 @@ func main() {
 		}
 	}
 
-	//	fmt.Println("Importing segment: ", segment)
-	//	fmt.Println("dataDir: ", dataDir)
 }
 
 func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, segmentList *[]commoncrawl.WatSegment, maxThreads int, maxWatFiles *int) {
@@ -175,46 +171,13 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 	}
 	wg.Wait() // This will block until all goroutines have called wg.Done()
 
-	// sort the file
+	// sort & compact the links and pages files
 	watFilesLeftQty := commoncrawl.CountFilesInSegmentToProcess(segment)
-	segmentSorted := dataDir.LinksDir + "/_sort_" + strconv.Itoa(segment.SegmentID) + extensionTxtGz
-	fmt.Println(watFilesLeftQty)
-	if !fileutils.FileExists(segmentSorted) && watFilesLeftQty == 0 {
-		// just save sorted data in gzip file and exit
-		if stopOnSort == true {
-			err = sortOutFilesWithBashGz(segmentSorted, dataDir.TmpDir+"/"+segment.Segment+linkDir)
-			if err != nil {
-				log.Fatalf("Could not sort file: %v", err)
-			}
-			// TODO also delete link directory and segment if it is empty
-			err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + linkDir)
-			if err != nil {
-				log.Fatalf("Could not delete WAT processed files: %v", err)
-			}
-			// save info that segment was finished
-			err = commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
-			if err != nil {
-				panic(fmt.Sprintf("%s: %v", segment.Segment, err))
-			}
-
-		}
-		/* TODO: this must be moved to separate process
-		err = sortOutFilesWithBash(dirOut)
+	if watFilesLeftQty == 0 {
+		err = compactSegmentData(segment, dataDir, segmentList)
 		if err != nil {
-			log.Fatalf("Could not sort file: %v", err)
+			panic(fmt.Sprintf("%s: %v", segment.Segment, err))
 		}
-
-		err = deleteWatPreProcessed(dirOut)
-		if err != nil {
-			log.Fatalf("Could not delete WAT processed files: %v", err)
-		}
-
-		err = splitProcessedData(dirOut+"/_sort.txt", defaultDir+"/out/links")
-		if err != nil {
-			log.Fatalf("Could not split files: %v", err)
-		}
-		os.Remove(dirOut + "/_sort.txt")
-		*/
 	}
 }
 
@@ -385,6 +348,52 @@ func deleteWatPreProcessed(dirPath string) error {
 				// Handle the error, but continue processing other files.
 				fmt.Printf("Error deleting file %s: %s\n", file, err)
 			}
+		}
+	}
+
+	err = fileutils.DeleteDirectoryIfEmpty(dirPath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// compactSegmentData - sort the file with bash sort and save as gz with segment in name - you can use these segments to move pre-processed data to other server
+func compactSegmentData(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, segmentList *[]commoncrawl.WatSegment) error {
+	var err error
+
+	linkSegmentSorted := dataDir.LinksDir + "/sort_" + strconv.Itoa(segment.SegmentID) + extensionTxtGz
+	pageSegmentSorted := dataDir.PagesDir + "/sort_" + strconv.Itoa(segment.SegmentID) + extensionTxtGz
+
+	if !fileutils.FileExists(linkSegmentSorted) {
+
+		err = sortOutFilesWithBashGz(linkSegmentSorted, dataDir.TmpDir+"/"+segment.Segment+linkDir)
+		if err != nil {
+			return fmt.Errorf("could not sort file: %v", err)
+		}
+		// TODO also delete link directory and segment if it is empty
+		err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + linkDir)
+		if err != nil {
+			return fmt.Errorf("could not delete WAT processed files: %v", err)
+		}
+		err = sortOutFilesWithBashGz(pageSegmentSorted, dataDir.TmpDir+"/"+segment.Segment+pageDir)
+		if err != nil {
+			return fmt.Errorf("could not sort file: %v", err)
+		}
+		err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + pageDir)
+		if err != nil {
+			return fmt.Errorf("could not delete WAT processed files: %v", err)
+		}
+		err = fileutils.DeleteDirectoryIfEmpty(dataDir.TmpDir + "/" + segment.Segment)
+		if err != nil {
+			return fmt.Errorf("could not delete tmp directories: %v", err)
+		}
+
+		// save info that segment was finished
+		err = commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
+		if err != nil {
+			return fmt.Errorf("%v", err)
 		}
 	}
 

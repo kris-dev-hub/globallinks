@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -110,6 +111,25 @@ func CreateDataDirectory(dirOut string) error {
 	}
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func DeleteDirectoryIfEmpty(dirPath string) error {
+
+	// Check if the directory is empty
+	remainingFiles, err := filepath.Glob(filepath.Join(dirPath, "*"))
+	if err != nil {
+		return err
+	}
+	if len(remainingFiles) == 0 {
+		// Directory is empty, delete it
+		fmt.Println("Deleting directory: ", dirPath)
+		err := os.Remove(dirPath)
+		if err != nil {
+			return fmt.Errorf("error deleting directory %s: %s", dirPath, err)
+		}
 	}
 
 	return nil
