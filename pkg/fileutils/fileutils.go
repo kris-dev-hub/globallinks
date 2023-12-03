@@ -98,3 +98,21 @@ func ReadGZFileByLine(filePath string) ([]string, error) {
 
 	return records, nil
 }
+
+// CreateDataDirectory creates the data directory if it does not exist
+func CreateDataDirectory(dirOut string) error {
+	var err error
+
+	if _, err = os.Stat(dirOut); os.IsNotExist(err) {
+		// The directory does not exist, create it
+		err = os.MkdirAll(dirOut, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

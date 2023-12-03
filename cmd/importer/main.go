@@ -6,31 +6,25 @@ import (
 	"fmt"
 	"github.com/kris-dev-hub/globallinks/pkg/commoncrawl"
 	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
-	"io/fs"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 )
-
-const defaultDir = "data"
 
 // save sorting output in gz file, don't generate page file
 const stopOnSort = true
 
-const savePageData = false
+const savePageData = true
 
 func main() {
 	var err error
+	var archiveName string
 
-	archiveName := "CC-MAIN-2021-04"
-	segmentName := "20210115134101"
-
-	if len(os.Args) < 3 {
+	if len(os.Args) < 2 {
 		fmt.Println("No archive name or segment specified")
 		os.Exit(1)
 	}
@@ -40,165 +34,173 @@ func main() {
 		os.Exit(1)
 	}
 
-	if isCorrectSegmentFormat(os.Args[2]) != true {
-		fmt.Println("Invalid segment name")
+	archiveName = os.Args[1]
+	////	maxThreads := setMaxThreads()
+	maxWatFiles := setMaxWATFiles()
+	defaultDir := setDataDirectory()
+
+	// import segment information
+	segmentList, err := commoncrawl.InitImport(archiveName)
+	if err != nil {
+		log.Println("Could not load segment list: %v", err)
 		os.Exit(1)
 	}
 
-	archiveName = os.Args[1]
-	segmentName = os.Args[2]
-
-	maxThreads := setMaxThreads()
-	maxWatFiles := setMaxWATFiles()
-
-	dirWat := defaultDir + "/wat"
-	err = createDataDirectory(dirWat)
+	// create data directories
+	dataDir, err := commoncrawl.CreateDataDir(defaultDir)
 	if err != nil {
-		log.Fatalf("Could not create directory: %v", err)
+		log.Println("Could not create data directory: %v", err)
+		os.Exit(1)
 	}
 
-	//check if wat.paths.gz.tmp exists
-	if fileutils.FileExists(defaultDir+"/wat.paths.gz") != true {
-		//download file
-		err = fileutils.DownloadFile("https://data.commoncrawl.org/crawl-data/"+archiveName+"/wat.paths.gz", "data/wat.paths.gz", 1)
+	for i := 0; i < len(segmentList); i++ {
+
+		//select segment to import
+		segment, err := commoncrawl.SelectSegmentToImport(segmentList)
 		if err != nil {
-			log.Fatalf("Could not load WAT paths file: %v", err)
+			log.Println("Could not select segment to import: %v", err)
+			os.Exit(1)
+		}
+
+		// parse only unfinished segments
+		if segment.ImportEnded == nil {
+			fmt.Printf("Importing segment %s\n", segment.Segment)
+			importSegment(segment, dataDir, &segmentList, maxWatFiles, &maxWatFiles)
 		}
 	}
 
-	dirOut := defaultDir + "/out/" + segmentName
+	//	fmt.Println("Importing segment: ", segment)
+	//	fmt.Println("dataDir: ", dataDir)
 
-	if savePageData == true {
-		err = createDataDirectory(dirOut + "/page")
-		if err != nil {
-			log.Fatalf("Could not create directory: %v", err)
-		}
-	}
+}
 
-	err = createDataDirectory(defaultDir + "/out/links")
-	if err != nil {
-		log.Fatalf("Could not create directory: %v", err)
-	}
-
-	watPaths, err := fileutils.ReadGZFileByLine(defaultDir + "/wat.paths.gz")
-	if err != nil {
-		log.Fatalf("Could not load WAT list file: %v", err)
-	}
+func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, segmentList *[]commoncrawl.WatSegment, maxThreads int, maxWatFiles *int) {
+	var err error
 
 	guard := make(chan struct{}, maxThreads) // limits the number of goroutines running at once
 	var wg sync.WaitGroup
 
-	watFilesQty := countFilesInSegment(watPaths, segmentName)
-	for _, watPath := range watPaths {
+	//save info that segment was started
+	commoncrawl.UpdateSegmentImportStart(segmentList, segment.Segment)
 
-		fileID, err := commoncrawl.ExtractWatFileNumber(watPath)
-		if err != nil {
+	for _, watFile := range segment.WatFiles {
+
+		//ignore imported files
+		if watFile.Imported != nil {
 			continue
 		}
 
-		linkFile := dirOut + "/" + fileID + ".txt.gz"
-		if fileutils.FileExists(linkFile) == true {
-			continue
-		}
-
-		if maxWatFiles <= 0 {
-			break
-		}
-
-		if strings.Contains(watPath, segmentName) == false {
-			continue
-		}
-		maxWatFiles--
-
-		//create empty file to block other processes from processing the same file
-		file, err := os.Create(linkFile)
+		linkFile := dataDir.TmpDir + "/" + segment.Segment + "/link/" + watFile.Number + ".txt.gz"
+		err := fileutils.CreateDataDirectory(filepath.Dir(linkFile))
 		if err != nil {
-			// Handle the error, e.g., exit or log
-			log.Fatalf("Failed to create file: %s", err)
+			panic(fmt.Sprintf("Failed to create link file: %v", err))
 		}
-		err = file.Close()
-		if err != nil {
-			log.Fatalf("Could not close file: %v", err)
-		}
-
-		recordFile := defaultDir + "/wat/" + filepath.Base(watPath)
-
-		if fileutils.FileExists(recordFile) != true {
-			err := fileutils.DownloadFile("https://data.commoncrawl.org/"+watPath, recordFile, 1)
+		pageFile := dataDir.TmpDir + "/" + segment.Segment + "/page/" + watFile.Number + ".txt.gz"
+		if savePageData == true {
+			err = fileutils.CreateDataDirectory(filepath.Dir(pageFile))
 			if err != nil {
-				log.Fatalf("Could not load WAT file %s: %v", watPath, err)
+				panic(fmt.Sprintf("Failed to create page file: %v", err))
 			}
 		}
 
-		fmt.Println("Importing file: ", recordFile)
+		recordWatFile := dataDir.TmpDir + "/wat/" + filepath.Base(watFile.Path)
+
+		if fileutils.FileExists(linkFile) == true {
+			//update segmentList with imported files info
+			commoncrawl.UpdateSegmentLinkImportStatus(segmentList, segment.Segment, recordWatFile)
+			continue
+		}
+
+		if *maxWatFiles <= 0 {
+			continue
+		}
+
+		*maxWatFiles--
+
+		err = fileutils.CreateDataDirectory(filepath.Dir(linkFile))
+		if err != nil {
+			panic(fmt.Sprintf("Failed to create file: %v", err))
+		}
+
+		err = fileutils.CreateDataDirectory(filepath.Dir(recordWatFile))
+		if err != nil {
+			panic(fmt.Sprintf("Failed to create file: %v", err))
+		}
+		if fileutils.FileExists(recordWatFile) != true {
+			err := fileutils.DownloadFile("https://data.commoncrawl.org/"+watFile.Path, recordWatFile, 1)
+			if err != nil {
+				log.Fatalf("Could not load WAT file %s: %v", watFile.Path, err)
+			}
+		}
+
+		fmt.Println("Importing file: ", recordWatFile)
 
 		wg.Add(1)
 		// Before starting the goroutine, we insert an empty struct into the guard channel.
 		// If the channel is already full (meaning we have 'maxGoroutines' goroutines running),
 		// this will block until one of the running goroutines finishes and reads from the channel.
 		guard <- struct{}{}
-		go func(recordFile string, dirOut string) {
+		go func(recordFile string, linkFile string, pageFile string) {
 			defer wg.Done()            // Signal the WaitGroup that the goroutine is done after it finishes
 			defer func() { <-guard }() // Release the guard when the goroutine is done
 
-			err = commoncrawl.ParseWatByLine(recordFile, dirOut, savePageData)
+			err = commoncrawl.ParseWatByLine(recordWatFile, linkFile, pageFile, savePageData)
 			if err != nil {
 				log.Fatalf("Could not open WAT file: %v", err)
 			}
+
+			//save info that this file was parsed
+			commoncrawl.UpdateSegmentLinkImportStatus(segmentList, segment.Segment, recordWatFile)
 
 			err = os.Remove(recordFile)
 			if err != nil {
 				log.Fatalf("Could not delete file: %v", err)
 			}
 
-		}(recordFile, dirOut)
+		}(recordWatFile, linkFile, pageFile)
 
 	}
 	wg.Wait() // This will block until all goroutines have called wg.Done()
 
-	filesQty, err := countNonEmptyGzFiles(dirOut)
-	if err != nil {
-		log.Fatalf("Could not count files in directory: %v", err)
-	}
-
 	//sort the file
-	if filesQty == watFilesQty {
-		if !fileutils.FileExists(dirOut + "/_sort.txt") {
+	watFilesLeftQty := commoncrawl.CountFilesInSegmentToProcess(segment)
+	segmentSorted := dataDir.LinksDir + "/_sort_" + strconv.Itoa(segment.SegmentID) + ".txt.gz"
+	fmt.Println(watFilesLeftQty)
+	if !fileutils.FileExists(segmentSorted) && watFilesLeftQty == 0 {
 
-			//just save sorted data in gzip file and exit
-			if stopOnSort == true {
-				err = sortOutFilesWithBashGz(dirOut, segmentName)
-				if err != nil {
-					log.Fatalf("Could not sort file: %v", err)
-				}
-
-				err = deleteWatPreProcessed(dirOut)
-				if err != nil {
-					log.Fatalf("Could not delete WAT processed files: %v", err)
-				}
-
-				os.Exit(0)
-			}
-
-			err = sortOutFilesWithBash(dirOut)
+		//just save sorted data in gzip file and exit
+		if stopOnSort == true {
+			err = sortOutFilesWithBashGz(segmentSorted, dataDir.TmpDir+"/"+segment.Segment+"/link/")
 			if err != nil {
 				log.Fatalf("Could not sort file: %v", err)
 			}
-
-			err = deleteWatPreProcessed(dirOut)
+			//TODO also delete link directory and segment if it is empty
+			err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + "/link/")
 			if err != nil {
 				log.Fatalf("Could not delete WAT processed files: %v", err)
 			}
-
-			err = splitProcessedData(dirOut+"/_sort.txt", defaultDir+"/out/links")
-			if err != nil {
-				log.Fatalf("Could not split files: %v", err)
-			}
-			os.Remove(dirOut + "/_sort.txt")
+			//save info that segment was finished
+			commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
 
 		}
-	}
+		/* TODO: this must be moved to separate process
+		err = sortOutFilesWithBash(dirOut)
+		if err != nil {
+			log.Fatalf("Could not sort file: %v", err)
+		}
 
+		err = deleteWatPreProcessed(dirOut)
+		if err != nil {
+			log.Fatalf("Could not delete WAT processed files: %v", err)
+		}
+
+		err = splitProcessedData(dirOut+"/_sort.txt", defaultDir+"/out/links")
+		if err != nil {
+			log.Fatalf("Could not split files: %v", err)
+		}
+		os.Remove(dirOut + "/_sort.txt")
+		*/
+	}
 }
 
 // isCorrectArchiveFormat checks if the archive name is in the correct format
@@ -213,24 +215,6 @@ func isCorrectSegmentFormat(s string) bool {
 	pattern := `^20\d{12}$`
 	match, _ := regexp.MatchString(pattern, s)
 	return match
-}
-
-// createDataDirectory creates the data directory if it does not exist
-func createDataDirectory(dirOut string) error {
-	var err error
-
-	if _, err = os.Stat(dirOut); os.IsNotExist(err) {
-		// The directory does not exist, create it
-		err = os.MkdirAll(dirOut, os.ModePerm)
-		if err != nil {
-			return err
-		}
-	}
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // setMaxThreads sets the maximum number of threads to use for processing. Every thread need around 1,5GB of RAM
@@ -287,46 +271,24 @@ func setMaxWATFiles() int {
 	return maxFiles
 }
 
-// countNonEmptyGzFiles counts all .txt.gz files with a five-digit name in the specified directory
-func countNonEmptyGzFiles(dir string) (int, error) {
-	var count int
-	fileRegex := regexp.MustCompile(`^\d{5}\.txt\.gz$`)
+// setDataDirectory set directory for datafiles
+func setDataDirectory() string {
 
-	err := filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	envVar := "GLOBALLINKS_DATAPATH"
+	defaultVal := "data"
 
-		if fileRegex.MatchString(info.Name()) {
-			if info.Size() > 0 {
-				count++
-			}
-		}
+	dataDir := os.Getenv(envVar)
+	if dataDir == "" {
+		return defaultVal
+	}
 
-		return nil
-	})
-
-	return count, err
+	return dataDir
 }
 
 // sortOutFilesWithBashGz - sort the file with bash sort and save as gz with segment in name - you can use these segments to move pre processed data to other server
-func sortOutFilesWithBashGz(dirOut string, segmentName string) error {
+func sortOutFilesWithBashGz(segmentSortedFile string, segmentLinksDir string) error {
 
-	cmdStr := "zcat " + dirOut + "/*.txt.gz | sort -S 2G | gzip > " + defaultDir + "/out/_sort_" + segmentName + ".txt.gz"
-
-	// Execute the command
-	cmd := exec.Command("bash", "-c", cmdStr)
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
-	return err
-}
-
-// sortOutFilesWithBash - sort the file with bash sort - it is the fastest way to sort the file
-func sortOutFilesWithBash(dirOut string) error {
-
-	cmdStr := "zcat " + dirOut + "/*.txt.gz | sort -S 2G -o " + dirOut + "/_sort.txt"
+	cmdStr := "zcat " + segmentLinksDir + "/*.txt.gz | sort -u -S 2G | gzip > " + segmentSortedFile
 
 	// Execute the command
 	cmd := exec.Command("bash", "-c", cmdStr)
@@ -335,18 +297,6 @@ func sortOutFilesWithBash(dirOut string) error {
 		return err
 	}
 	return err
-}
-
-// countFilesInSegment - count files in segment
-func countFilesInSegment(watPaths []string, segment string) int {
-	filesQty := 0
-	for _, watPath := range watPaths {
-		if strings.Contains(watPath, segment) == true {
-			filesQty++
-			continue
-		}
-	}
-	return filesQty
 }
 
 // split data into many files sorted by domain names

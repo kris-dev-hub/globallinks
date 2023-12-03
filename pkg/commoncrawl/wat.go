@@ -2,12 +2,16 @@ package commoncrawl
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/dgryski/go-farm"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/kris-dev-hub/globallinks/pkg/config"
+	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
 	"github.com/tidwall/gjson"
 	"golang.org/x/net/publicsuffix"
+	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -83,6 +87,30 @@ type SortFileLinkByFields struct {
 	Path      string
 }
 
+// WatFile - Define a struct to represent a wat file
+type WatFile struct {
+	Number   string     `json:"number"`
+	Path     string     `json:"path"`
+	Imported *time.Time `json:"imported"`
+}
+
+// WatSegment - Define a struct to represent a segment
+type WatSegment struct {
+	Archive       string     `json:"archive"`
+	Segment       string     `json:"segment"`
+	SegmentID     int        `json:"segment_id"`
+	WatFiles      []WatFile  `json:"wat_files"`
+	ImportStarted *time.Time `json:"import_started"`
+	ImportEnded   *time.Time `json:"import_ended"`
+}
+
+type DataDir struct {
+	DataDir  string `json:"data_dir"`
+	TmpDir   string `json:"tmp_dir"`
+	LinksDir string `json:"links_dir"`
+	PagesDir string `json:"pages_dir"`
+}
+
 // use to validate if host is not an IP address. precompile it here to make it faster and avoid compiling it every time
 // saves around 1s per 1M lines on one i5-9300H core
 var ipRegex = regexp.MustCompile(`^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$`)
@@ -103,8 +131,111 @@ var (
 	domainCacheMutex sync.RWMutex
 )
 
+// InitImport - initialize import by downloading segments file and extracting segments into segmentList
+func InitImport(archiveName string) ([]WatSegment, error) {
+	var err error
+	var segmentList []WatSegment
+
+	//download segments file
+	url := "https://data.commoncrawl.org/crawl-data/" + archiveName + "/wat.paths.gz"
+
+	// download file
+	resp, err := http.Get(url)
+	if err != nil {
+		return segmentList, err
+	}
+	defer resp.Body.Close()
+
+	//extract gzip
+	gr, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		return segmentList, err
+	}
+	defer gr.Close()
+
+	scanner := bufio.NewScanner(gr)
+	segments := make(map[string][]string)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, "/")
+		if len(parts) > 4 {
+			segment := parts[3]           // Extracting the segment part
+			if segments[segment] == nil { // If the segment is not in the map, create a new slice
+				segments[segment] = make([]string, 0)
+			}
+			segments[segment] = append(segments[segment], line) // Append the line to the slice
+		}
+	}
+
+	if err = scanner.Err(); err != nil {
+		return segmentList, err
+	}
+
+	fileNumber := ""
+	segmentList = make([]WatSegment, 0, len(segments))
+	//TODO: this is just a test with collecting only 4 links
+	j := 0
+	for segment, fileList := range segments {
+		if j >= 4 {
+			break
+		}
+		watFileList := make([]WatFile, 0, len(fileList))
+		//TODO: this is just a test with collecting only 4 links
+		i := 0
+		for _, file := range fileList {
+			if i >= 4 {
+				break
+			}
+			fileNumber, err = ExtractWatFileNumber(file)
+			if err != nil {
+				return segmentList, err
+			}
+			watFileList = append(watFileList, WatFile{Path: file, Number: fileNumber})
+			i++
+		}
+		segmentId, err := strconv.Atoi(strings.Split(segment, ".")[1])
+		if err != nil {
+			return segmentList, errors.New("error converting segment to segment_id to int")
+		}
+		segmentList = append(segmentList, WatSegment{Segment: segment, SegmentID: segmentId, Archive: archiveName, WatFiles: watFileList})
+		j++
+	}
+
+	return segmentList, nil
+}
+
+func CreateDataDir(defaultDir string) (DataDir, error) {
+	var err error
+	var dataDir DataDir
+
+	dataDir = DataDir{defaultDir, defaultDir + "/tmp", defaultDir + "/links", defaultDir + "/pages"}
+
+	fileutils.CreateDataDirectory(dataDir.DataDir)
+	if err != nil {
+		log.Fatalf("Could not create data directory: %v", err)
+	}
+
+	fileutils.CreateDataDirectory(dataDir.TmpDir)
+	if err != nil {
+		log.Fatalf("Could not create tmp directory: %v", err)
+	}
+
+	fileutils.CreateDataDirectory(dataDir.LinksDir)
+	if err != nil {
+		log.Fatalf("Could not create tmp directory: %v", err)
+	}
+
+	fileutils.CreateDataDirectory(dataDir.PagesDir)
+	if err != nil {
+		log.Fatalf("Could not create tmp directory: %v", err)
+	}
+
+	return dataDir, nil
+}
+
 // ParseWatByLine - parse wat file line by line and store links in file
-func ParseWatByLine(filePath string, dirOut string, savePage bool) error {
+func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage bool) error {
 
 	//prepare ignore domains and extensions map - load only when empty
 	if len(ignoreDomains) == 0 {
@@ -126,7 +257,7 @@ func ParseWatByLine(filePath string, dirOut string, savePage bool) error {
 	var pageMap = make(map[string]FilePage)
 	var linkMap = make(map[string]FileLink)
 
-	const maxCapacityScanner = 2 * 1024 * 1024 //1MB
+	const maxCapacityScanner = 3 * 1024 * 1024 //3*1MB
 
 	fileID, err := ExtractWatFileNumber(filePath)
 	if err != nil {
@@ -232,14 +363,14 @@ func ParseWatByLine(filePath string, dirOut string, savePage bool) error {
 	}
 
 	//saving link file and reseting linkMap
-	err = saveLinkFile(fileID, dirOut, linkMap, pageMap)
+	err = saveLinkFile(fileID, linkFile, linkMap, pageMap)
 	if err != nil {
 		return err
 	}
 
 	if savePage == true {
 		//saving page file and reseting pageMap
-		err = savePageFile(fileID, dirOut, pageMap)
+		err = savePageFile(fileID, pageFile, pageMap)
 		if err != nil {
 			return err
 		}
@@ -719,8 +850,8 @@ func ExtractWatFileNumber(filename string) (string, error) {
 }
 
 // savePageFile - save pages info to file
-func savePageFile(fileID string, dirOut string, pageMap map[string]FilePage) error {
-	fileOutPage, err := os.OpenFile(dirOut+"/page/page"+fileID+".txt.gz", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+func savePageFile(fileID string, pageFile string, pageMap map[string]FilePage) error {
+	fileOutPage, err := os.OpenFile(pageFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Printf("Error opening page file: %s\n", err)
 		return err
@@ -758,12 +889,12 @@ func savePageFile(fileID string, dirOut string, pageMap map[string]FilePage) err
 }
 
 // saveLinkFile - save links info to file
-func saveLinkFile(fileID string, dirOut string, linkMap map[string]FileLink, pageMap map[string]FilePage) error {
+func saveLinkFile(fileID string, linkFile string, linkMap map[string]FileLink, pageMap map[string]FilePage) error {
 
 	sortableFileLinkSlice := sortFileLink(linkMap)
 
 	// Open the file for writing, create it if not exists, append to it if it does.
-	fileOut, err := os.OpenFile(dirOut+"/"+fileID+".txt.gz", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	fileOut, err := os.OpenFile(linkFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Printf("Error opening file: %s\n", err)
 		return err
@@ -841,4 +972,85 @@ func genSubdomain(urlRecord *UrlRecord) string {
 		subDomain = strings.TrimSuffix(*urlRecord.Host, "."+*urlRecord.Domain)
 	}
 	return subDomain
+}
+
+// CountFilesInSegmentToProcess - count files in segment that still need to be processed
+func CountFilesInSegmentToProcess(segment WatSegment) int {
+	toProcessQty := 0
+
+	//return number of files in segment
+	for _, file := range segment.WatFiles {
+		if file.Imported == nil {
+			toProcessQty++
+		}
+	}
+
+	return toProcessQty
+}
+
+// SelectSegmentToImport - select segment to import
+func SelectSegmentToImport(segmentList []WatSegment) (WatSegment, error) {
+
+	//sort segment by segment name
+	sort.Slice(segmentList, func(i, j int) bool {
+		return segmentList[i].SegmentID < segmentList[j].SegmentID
+	})
+
+	for _, segment := range segmentList {
+		if segment.ImportEnded == nil {
+			return segment, nil
+		}
+	}
+
+	return WatSegment{}, errors.New("no segment to import")
+}
+
+// UpdateSegmentLinkImportStatus - update segment link import status
+func UpdateSegmentLinkImportStatus(segmentList *[]WatSegment, segmentName string, filePath string) error {
+
+	fileID, err := ExtractWatFileNumber(filePath)
+	if err != nil {
+		return fmt.Errorf("error extracting file number: %w", err)
+	}
+
+	for idSegment, segment := range *segmentList {
+		if segment.Segment == segmentName {
+			for idWatFile, file := range segment.WatFiles {
+				if file.Number == fileID {
+					now := time.Now()
+					(*segmentList)[idSegment].WatFiles[idWatFile].Imported = &now
+					return nil
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// UpdateSegmentImportStart - update segment mport status
+func UpdateSegmentImportStart(segmentList *[]WatSegment, segmentName string) error {
+
+	for idSegment, segment := range *segmentList {
+		if segment.Segment == segmentName {
+			if segment.ImportStarted == nil {
+				now := time.Now()
+				(*segmentList)[idSegment].ImportStarted = &now
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+// UpdateSegmentImportEnd - update segment mport status
+func UpdateSegmentImportEnd(segmentList *[]WatSegment, segmentName string) error {
+
+	for idSegment, segment := range *segmentList {
+		if segment.Segment == segmentName {
+			now := time.Now()
+			(*segmentList)[idSegment].ImportEnded = &now
+			return nil
+		}
+	}
+	return nil
 }

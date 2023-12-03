@@ -21,21 +21,26 @@ Control the number of WAT files parsed in one go `GLOBALLINKS_MAXWATFILES` envir
 export GLOBALLINKS_MAXWATFILES=10
 ```
 
+Set path for data files , default "data" `GLOBALLINKS_DATAPATH` environment variable:
+
+```sh
+export GLOBALLINKS_DATAPATH=data
+```
 
 ## Usage
 Start by selecting an archive and its segment name from Common Crawl https://www.commoncrawl.org/get-started. Then run the following command:
 
 ```sh
-go run cmd/importer/main.go CC-MAIN-2021-04 20210115134101
+go run cmd/importer/main.go CC-MAIN-2021-04
 ```
 
 Replace CC-MAIN-2021-04 with your chosen archive name and 20210115134101 with the segment name.
 
 ### Output
 
-links files are stored in data/out/{archive}/
+links files are stored in data/links/
 
-pages files are stored in data/out/{archive}/page/
+pages files are stored in data/pages/
 
 ### Format
 
@@ -47,7 +52,7 @@ page: sourceHost|sourcePath|sourceQuery|sourceScheme|pageTitle|ip|date_imported|
 ## System Requirements
 - Go 1.21 or later.
 - Requires 1.5GB of RAM per thread.
-- Minimum 60GB of free disk for every segment parsed.
+- Minimum 40GB of free disk for every segment parsed.
 
 ## Alpha Version Disclaimer
 This is an alpha version of GlobalLinks and is subject to changes. The software is provided "as is", without warranty of any kind.
