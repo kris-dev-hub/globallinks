@@ -1,3 +1,6 @@
+/*
+Package commoncrawl - package to parse commoncrawl wat files and save links and pages to files, sorted and split for further processing
+*/
 package commoncrawl
 
 import (
@@ -18,15 +21,14 @@ import (
 
 	"github.com/dgryski/go-farm"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/klauspost/compress/gzip"
+	"github.com/klauspost/compress/gzip" // faster than std gzip library, 0.7 sec faster parsing 1M lines
 	"github.com/kris-dev-hub/globallinks/pkg/config"
 	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
 	"github.com/tidwall/gjson"
 	"golang.org/x/net/publicsuffix"
 )
 
-// faster than std gzip library, 0.7 sec faster parsing 1M lines
-
+// URLRecord - Define a struct to represent a URL record
 type URLRecord struct {
 	URL       *string
 	Scheme    *string
@@ -40,6 +42,7 @@ type URLRecord struct {
 	NoFollow  *int
 }
 
+// WatPage - Define a struct to represent a wat page
 type WatPage struct {
 	IP            *string
 	Imported      *string
@@ -52,6 +55,7 @@ type WatPage struct {
 	Links         []URLRecord
 }
 
+// FilePage - Define a struct to represent a page in file
 type FilePage struct {
 	Host          string
 	Path          string
@@ -65,6 +69,7 @@ type FilePage struct {
 	NoIndex       int
 }
 
+// FileLink - Define a struct to represent a link in file
 type FileLink struct {
 	LinkHost      string
 	LinkPath      string
@@ -80,6 +85,7 @@ type FileLink struct {
 	LinkSubDomain string
 }
 
+// SortFileLinkByFields - structure used to sort links
 type SortFileLinkByFields struct {
 	Key       string
 	Domain    string
@@ -104,6 +110,7 @@ type WatSegment struct {
 	ImportEnded   *time.Time `json:"import_ended"`
 }
 
+// DataDir - Define a struct to represent a data directory, tmp, links, pages folders
 type DataDir struct {
 	DataDir  string `json:"data_dir"`
 	TmpDir   string `json:"tmp_dir"`
@@ -206,6 +213,7 @@ func InitImport(archiveName string) ([]WatSegment, error) {
 	return segmentList, nil
 }
 
+// CreateDataDir - create data directory and tmp, links, pages folders
 func CreateDataDir(defaultDir string) (DataDir, error) {
 	var err error
 	dataDir := DataDir{defaultDir, defaultDir + "/tmp", defaultDir + "/links", defaultDir + "/pages"}
@@ -377,6 +385,7 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 	return nil
 }
 
+// readPageContent - read page content from json, get IP, noindex, nofollow, title, links, etc.
 func readPageContent(line string, sourceURLRecord *URLRecord) *WatPage {
 	var err error
 
@@ -733,6 +742,7 @@ func ignoreQuery(query string) bool {
 	return false
 }
 
+// verifyContentQuality - verify if page is valid, noindex, nofollow, canonical, etc.
 func verifyContentQuality(parsedJSON *gjson.Result, watPage *WatPage) bool {
 	/* TODO: I might consider ignoring only noindex nofollow pages
 	//ignore no index no follow pages
@@ -817,6 +827,7 @@ func checkPageCanonicalLink(parsedJSON *gjson.Result, watPage *WatPage) bool {
 	return true
 }
 
+// setScheme - set scheme to 0, 1 or 2 depending on http, https or other
 func setScheme(scheme string) string {
 	if scheme == "https" {
 		return "2"

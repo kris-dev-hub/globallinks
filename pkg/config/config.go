@@ -1,3 +1,6 @@
+/*
+Package config - configuration for the crawler, including ignored file extensions, domains, TLDs and query strings
+*/
 package config
 
 // FileExtensions - list of file extensions to ignore
