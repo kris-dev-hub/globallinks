@@ -699,7 +699,7 @@ func createFileExtensionMap(extensions []string) map[string]bool {
 // isIgnoredDomain - ignore certain domains in links
 func isIgnoredDomain(domain string) bool {
 	ignoreDomainsMutex.RLock()
-	_, exists := ignoreDomains[domain]
+	_, exists := ignoreDomains[strings.ToLower(domain)]
 	ignoreDomainsMutex.RUnlock()
 	return exists
 }
@@ -933,7 +933,7 @@ func saveLinkFile(linkFile string, linkMap map[string]FileLink, pageMap map[stri
 func sortFileLink(linkMap map[string]FileLink) []SortFileLinkByFields {
 	var sortableSlice []SortFileLinkByFields
 	for key, value := range linkMap {
-		sortableSlice = append(sortableSlice, SortFileLinkByFields{Key: key, Domain: value.LinkDomain, Subdomain: value.LinkHost, Path: value.LinkPath})
+		sortableSlice = append(sortableSlice, SortFileLinkByFields{Key: key, Domain: value.LinkDomain, Subdomain: value.LinkSubDomain, Path: value.LinkPath})
 	}
 
 	sort.Slice(sortableSlice, func(i, j int) bool {
@@ -1047,4 +1047,11 @@ func ValidateSegmentImportEndAtStart(segmentList *[]WatSegment, dataDir DataDir,
 			(*segmentList)[i].ImportEnded = &now
 		}
 	}
+}
+
+// IsCorrectArchiveFormat checks if the archive name is in the correct format
+func IsCorrectArchiveFormat(s string) bool {
+	pattern := `^CC-MAIN-\d{4}-\d{2}$`
+	match, _ := regexp.MatchString(pattern, s)
+	return match
 }

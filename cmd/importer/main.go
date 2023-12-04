@@ -33,7 +33,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !isCorrectArchiveFormat(os.Args[1]) {
+	if !commoncrawl.IsCorrectArchiveFormat(os.Args[1]) {
 		fmt.Println("Invalid archive name")
 		os.Exit(1)
 	}
@@ -199,13 +199,6 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 			panic(fmt.Sprintf("%s: %v", segment.Segment, err))
 		}
 	}
-}
-
-// isCorrectArchiveFormat checks if the archive name is in the correct format
-func isCorrectArchiveFormat(s string) bool {
-	pattern := `^CC-MAIN-\d{4}-\d{2}$`
-	match, _ := regexp.MatchString(pattern, s)
-	return match
 }
 
 // setMaxThreads sets the maximum number of threads to use for processing. Every thread need around 1,5GB of RAM
