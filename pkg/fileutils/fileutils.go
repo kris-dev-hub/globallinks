@@ -1,3 +1,6 @@
+/*
+Package fileutils provides utility functions for working with files and directories
+*/
 package fileutils
 
 import (
@@ -11,6 +14,7 @@ import (
 	"time"
 )
 
+// FileExists checks if a file exists
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
@@ -19,6 +23,7 @@ func FileExists(filename string) bool {
 	return !info.IsDir()
 }
 
+// DownloadFile downloads a file from a URL and saves it to the specified path, retry if needed
 func DownloadFile(url, outputPath string, maxRetries int) error {
 	var resp *http.Response
 	var err error
@@ -66,6 +71,7 @@ func DownloadFile(url, outputPath string, maxRetries int) error {
 	return nil
 }
 
+// ReadGZFileByLine reads a .gz file line by line and returns a slice of strings
 func ReadGZFileByLine(filePath string) ([]string, error) {
 	// Open the .gz file
 	file, err := os.Open(filePath)
@@ -116,6 +122,7 @@ func CreateDataDirectory(dirOut string) error {
 	return nil
 }
 
+// DeleteDirectoryIfEmpty deletes the directory if it is empty - used for cleaning up data directories
 func DeleteDirectoryIfEmpty(dirPath string) error {
 	// Check if the directory is empty
 	remainingFiles, err := filepath.Glob(filepath.Join(dirPath, "*"))
