@@ -58,8 +58,6 @@ make compose-up ARCHIVENAME="CC-MAIN-2021-04" GLOBALLINKS_MAXWATFILES=6 GLOBALLI
 
 Data will be stored in watdata directory, you can restart the process multiple times it will continue from the last file.
 
-```sh
-
 ## System Requirements
 - Go 1.21 or later.
 - Requires 1.5GB of RAM per thread.
