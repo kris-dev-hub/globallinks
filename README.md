@@ -48,6 +48,17 @@ link: linkedDomain|linkedSubdomain|linkedPath|linkedQuery|linkedScheme|sourceHos
 
 page: sourceHost|sourcePath|sourceQuery|sourceScheme|pageTitle|ip|date_imported|internal_links_qty|external_links_qty|noindex
 
+## Docker
+Build the docker image, and collect the data from the archive CC-MAIN-2021-04 for 6 files and 4 threads.
+There are 90000 files to collect in one archive, 720 files for one segment.
+
+```sh
+make compose-up ARCHIVENAME="CC-MAIN-2021-04" GLOBALLINKS_MAXWATFILES=6 GLOBALLINKS_MAXTHREADS=4
+```
+
+Data will be stored in watdata directory, you can restart the process multiple times it will continue from the last file.
+
+```sh
 
 ## System Requirements
 - Go 1.21 or later.

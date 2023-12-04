@@ -1,0 +1,13 @@
+version: '3'
+services:
+  watimport:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - ARCHIVENAME=${ARCHIVENAME}
+        - GLOBALLINKS_MAXWATFILES=${GLOBALLINKS_MAXWATFILES}
+        - GLOBALLINKS_MAXTHREADS=${GLOBALLINKS_MAXTHREADS}
+    volumes:
+      - ./watdata:/app/data
+    command: /app/importer ${ARCHIVENAME} ${GLOBALLINKS_MAXWATFILES} ${GLOBALLINKS_MAXTHREADS}

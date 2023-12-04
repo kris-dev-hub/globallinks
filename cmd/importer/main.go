@@ -29,13 +29,29 @@ func main() {
 	var archiveName string
 
 	if len(os.Args) < 2 {
-		fmt.Println("No archive name or segment specified")
+		fmt.Println("No archive name or segment specified. Example: ./importer CC-MAIN-2020-24 <num_of_wat_to_import> <num_of_threads>")
 		os.Exit(1)
 	}
 
 	if !isCorrectArchiveFormat(os.Args[1]) {
 		fmt.Println("Invalid archive name")
 		os.Exit(1)
+	}
+
+	if len(os.Args) > 2 {
+		numWatFiles, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			numWatFiles = 1
+		}
+		os.Setenv("GLOBALLINKS_MAXWATFILES", strconv.Itoa(numWatFiles))
+	}
+
+	if len(os.Args) > 3 {
+		numThreads, err := strconv.Atoi(os.Args[3])
+		if err != nil {
+			numThreads = 1
+		}
+		os.Setenv("GLOBALLINKS_MAXTHREADS", strconv.Itoa(numThreads))
 	}
 
 	archiveName = os.Args[1]
