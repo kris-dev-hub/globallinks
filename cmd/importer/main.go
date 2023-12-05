@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"compress/gzip"
 	"fmt"
 	"log"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/klauspost/compress/gzip"
 
 	"github.com/kris-dev-hub/globallinks/pkg/commoncrawl"
 	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
@@ -253,7 +254,7 @@ func setMaxWATFiles() int {
 	envVar := "GLOBALLINKS_MAXWATFILES"
 	defaultVal := 1
 	minVal := 1
-	maxVal := 1000
+	maxVal := 100000
 
 	maxFilesStr := os.Getenv(envVar)
 	if maxFilesStr == "" {
@@ -388,71 +389,6 @@ func aggressiveCompacting(segmentSortedFile string, linkSegmentCompacted string)
 		}
 	}
 	return err
-}
-
-// split data into many files sorted by domain names
-//
-//nolint:unused
-func splitProcessedData(sortFile string, dirOut string) error {
-	file, err := os.Open(sortFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	var currentFile *os.File
-	var gzipWriter *gzip.Writer
-	var currentPrefix string
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if len(line) < 5 {
-			continue
-		}
-
-		firstLetter := string(line[0])
-		firstTwoLetters := line[1:2]
-		firstThreeLetters := line[2:3]
-		prefix := line[:5]
-		dirPath := dirOut + "/" + firstLetter + "/" + firstTwoLetters + "/" + firstThreeLetters
-
-		if prefix != currentPrefix {
-			if gzipWriter != nil {
-				gzipWriter.Close()
-				currentFile.Close()
-			}
-
-			if err := os.MkdirAll(dirPath, 0o755); err != nil {
-				return err
-			}
-
-			fileName := dirPath + "/" + prefix + ".gz"
-			currentFile, err = os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-			if err != nil {
-				return err
-			}
-
-			gzipWriter = gzip.NewWriter(currentFile)
-			currentPrefix = prefix
-		}
-
-		_, err = gzipWriter.Write([]byte(line + "\n"))
-		if err != nil {
-			return err
-		}
-	}
-
-	if gzipWriter != nil {
-		gzipWriter.Close()
-		currentFile.Close()
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // deleteWatPreProcessed - Delete files build during WAT processing

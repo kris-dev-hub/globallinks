@@ -36,6 +36,19 @@ go run cmd/importer/main.go CC-MAIN-2021-04
 
 Replace CC-MAIN-2021-04 with your chosen archive name and 20210115134101 with the segment name.
 
+Distributing links data into tree directory structure to be able to build API on top of it.
+
+```sh
+go run cmd/storelinks/main.go data/links/compact_0.txt.gz data/linkdb
+
+```
+
+Replace data/links/compact_0.txt.gz with your chosen compacted links file and data/linkdb with your chosen output directory.
+Repeating this command for all compacted segment links files will update the tree directory structure in data/linkdb.
+
+```sh
+
+
 ## Test settings
 
 wat.go file contains line "const debugTestMode = false". Setting it to true import only 10 files from 3 segments. Allow to watch whole process on limited data. It will use only 30 files for test and not 90000.

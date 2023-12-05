@@ -5,13 +5,14 @@ package fileutils
 
 import (
 	"bufio"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/klauspost/compress/gzip"
 )
 
 // FileExists checks if a file exists
@@ -21,6 +22,15 @@ func FileExists(filename string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+// DirExists checks if a directory exists
+func DirExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return info.IsDir()
 }
 
 // DownloadFile downloads a file from a URL and saves it to the specified path, retry if needed

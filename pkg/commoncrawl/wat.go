@@ -186,14 +186,14 @@ func InitImport(archiveName string) ([]WatSegment, error) {
 	segmentList = make([]WatSegment, 0, len(segments))
 	j := 0
 	for segment, fileList := range segments {
-		//this enable debugTestMode limit
+		// this enable debugTestMode limit
 		if debugTestMode == true && j >= 2 {
 			break
 		}
 		watFileList := make([]WatFile, 0, len(fileList))
 		i := 0
 		for _, file := range fileList {
-			//this enable debugTestMode limit
+			// this enable debugTestMode limit
 			if debugTestMode == true && i >= 20 {
 				break
 			}
@@ -433,7 +433,7 @@ func readPageContent(line string, sourceURLRecord *URLRecord) *WatPage {
 
 	watPage.Links, watPage.InternalLinks, watPage.ExternalLinks, err = parseLinks(linksData, sourceURLRecord, *watPage.NoFollow)
 	if err != nil {
-		//we ignore broken links data in source document
+		// we ignore broken links data in source document
 		return nil
 	}
 
