@@ -17,8 +17,10 @@ var IgnoreTLD = []string{
 var IgnoreDomains = []string{
 	"25418088.com.tw",
 	"addtoany.com",
+	"addthis.com",
 	"adf.ly",
 	"adobe.com",
+	"aliexpress.com",
 	"akismet.com",
 	"amazon.com",
 	"amazon.co.jp",

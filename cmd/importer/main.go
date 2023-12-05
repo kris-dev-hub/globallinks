@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/kris-dev-hub/globallinks/pkg/commoncrawl"
@@ -23,6 +24,26 @@ const (
 	linkDir        = "/link/"
 	pageDir        = "/page/"
 )
+
+// FileLinkCompacted - compacted link file
+type FileLinkCompacted struct {
+	LinkDomain    string
+	LinkSubDomain string
+	LinkPath      string
+	LinkRawQuery  string
+	LinkScheme    string
+	PageHost      string
+	PagePath      string
+	PageRawQuery  string
+	PageScheme    string
+	LinkText      string
+	NoFollow      int
+	NoIndex       int
+	DateFrom      string
+	DateTo        string
+	IP            string
+	Qty           int
+}
 
 func main() {
 	var err error
@@ -279,6 +300,96 @@ func sortOutFilesWithBashGz(segmentSortedFile string, segmentLinksDir string) er
 	return err
 }
 
+// aggressiveCompacting - compact data from sort file to new compacted file saving space leave only strongest link from each host and number of similar links
+func aggressiveCompacting(segmentSortedFile string, linkSegmentCompacted string) error {
+	segmentCompactedFile := linkSegmentCompacted
+
+	// load data from sort file
+	const maxCapacityScanner = 3 * 1024 * 1024 // 3*1MB
+
+	// Open the .gz file
+	file, err := os.Open(segmentSortedFile)
+	if err != nil {
+		return fmt.Errorf("error opening file: %w", err)
+	}
+	defer file.Close()
+
+	// Create a gzip Reader
+	gzReader, err := gzip.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("error creating gzip reader: %w", err)
+	}
+	defer gzReader.Close()
+
+	// Use a bufio.Scanner to read the file line by line
+	scanner := bufio.NewScanner(gzReader)
+	// create buffer to avoid going over token size
+	buf := make([]byte, maxCapacityScanner)
+	scanner.Buffer(buf, maxCapacityScanner)
+
+	// Read each line and append to the records slice
+	line := ""
+
+	fileLink := FileLinkCompacted{}
+	finalLink := FileLinkCompacted{}
+
+	var linksToSave []FileLinkCompacted
+
+	i := 0
+	for scanner.Scan() {
+		i++
+		line = scanner.Text()
+		parts := strings.Split(line, "|")
+		if len(parts) != 14 {
+			// Invalid line - skip
+			continue
+		}
+		fileLink = FileLinkCompacted{}
+		fileLink.LinkDomain = parts[0]
+		fileLink.LinkSubDomain = parts[1]
+		fileLink.LinkPath = parts[2]
+		fileLink.LinkRawQuery = parts[3]
+		fileLink.LinkScheme = parts[4]
+		fileLink.PageHost = parts[5]
+		fileLink.PagePath = parts[6]
+		fileLink.PageRawQuery = parts[7]
+		fileLink.PageScheme = parts[8]
+		fileLink.LinkText = parts[9]
+		fileLink.NoFollow, _ = strconv.Atoi(parts[10])
+		fileLink.NoIndex, _ = strconv.Atoi(parts[11])
+		fileLink.DateFrom = parts[12]
+		fileLink.DateTo = parts[12]
+		fileLink.IP = parts[13]
+		fileLink.Qty = 1
+
+		saveLink := compareRecords(fileLink, &finalLink)
+		if saveLink {
+			if finalLink.LinkDomain != "" {
+				linksToSave = append(linksToSave, finalLink)
+			}
+			finalLink = fileLink
+		}
+		// save file every 10000 lines and reset linksToSave
+		if i > 10000 {
+			i = 0
+			err = saveFinalLinksToFile(segmentCompactedFile, linksToSave)
+			if err != nil {
+				return err
+			}
+			linksToSave = []FileLinkCompacted{}
+		}
+	}
+
+	// save final part of data
+	if len(linksToSave) > 0 {
+		err = saveFinalLinksToFile(segmentCompactedFile, linksToSave)
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
 // split data into many files sorted by domain names
 //
 //nolint:unused
@@ -378,6 +489,7 @@ func compactSegmentData(segment commoncrawl.WatSegment, dataDir commoncrawl.Data
 
 	linkSegmentSorted := dataDir.LinksDir + "/sort_" + strconv.Itoa(segment.SegmentID) + extensionTxtGz
 	pageSegmentSorted := dataDir.PagesDir + "/sort_" + strconv.Itoa(segment.SegmentID) + extensionTxtGz
+	linkSegmentCompacted := dataDir.LinksDir + "/compact_" + strconv.Itoa(segment.SegmentID) + extensionTxtGz
 
 	if !fileutils.FileExists(linkSegmentSorted) {
 
@@ -385,7 +497,6 @@ func compactSegmentData(segment commoncrawl.WatSegment, dataDir commoncrawl.Data
 		if err != nil {
 			return fmt.Errorf("could not sort file: %v", err)
 		}
-		// TODO also delete link directory and segment if it is empty
 		err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + linkDir)
 		if err != nil {
 			return fmt.Errorf("could not delete WAT processed files: %v", err)
@@ -403,11 +514,106 @@ func compactSegmentData(segment commoncrawl.WatSegment, dataDir commoncrawl.Data
 			return fmt.Errorf("could not delete tmp directories: %v", err)
 		}
 
+		err = aggressiveCompacting(linkSegmentSorted, linkSegmentCompacted)
+		if err != nil {
+			return fmt.Errorf("could not compact file: %v", err)
+		}
+		// TODO: delete sort file after aggressive compacting
+
 		// save info that segment was finished
 		err = commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
 		if err != nil {
 			return fmt.Errorf("%v", err)
 		}
+	}
+
+	return nil
+}
+
+// compareRecords - compare compacted record and next record return true if we should save current record, also update compacted with information from current record when we don't have to save it
+func compareRecords(fileLink FileLinkCompacted, finalLink *FileLinkCompacted) bool {
+	if fileLink.LinkDomain == "" {
+		return true
+	}
+
+	// if both record are different return true to save current link
+	if fileLink.LinkDomain != "" && (fileLink.LinkDomain != finalLink.LinkDomain || fileLink.LinkSubDomain != finalLink.LinkSubDomain || fileLink.LinkPath != finalLink.LinkPath || fileLink.LinkRawQuery != finalLink.LinkRawQuery || fileLink.PageHost != finalLink.PageHost) {
+		return true
+	}
+
+	// ignore nofollow link if we have dofollow
+	if finalLink.NoFollow == 0 && fileLink.NoFollow == 1 {
+		return false
+	}
+
+	// update date from and date to
+	if fileLink.DateFrom < finalLink.DateFrom {
+		finalLink.DateFrom = fileLink.DateFrom
+	}
+	if fileLink.DateTo > finalLink.DateTo {
+		finalLink.DateTo = fileLink.DateTo
+	}
+
+	// take ip from latest record
+	finalLink.IP = fileLink.IP
+
+	if fileLink.PagePath != finalLink.PagePath || fileLink.PageRawQuery != finalLink.PageRawQuery {
+		if len(fileLink.PagePath) < len(finalLink.PagePath) {
+			// select shortest path if query is the same or shorter
+			if len(fileLink.PageRawQuery) <= len(finalLink.PageRawQuery) {
+				finalLink.PageRawQuery = fileLink.PageRawQuery
+				finalLink.PagePath = fileLink.PagePath
+			}
+		} else if len(fileLink.PagePath) == len(finalLink.PagePath) && len(fileLink.PageRawQuery) < len(finalLink.PageRawQuery) {
+			// select shortest query if path is the same
+			finalLink.PageRawQuery = fileLink.PageRawQuery
+		}
+		finalLink.Qty++
+		//		fmt.Printf("%d", finalLink.Qty)
+	}
+
+	return false
+}
+
+// saveFinalLinksToFile - save final compacted links to file
+func saveFinalLinksToFile(segmentCompactedFile string, linksToSave []FileLinkCompacted) error {
+	// Open the file for writing, create it if not exists, append to it if it does.
+	fileOut, err := os.OpenFile(segmentCompactedFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
+	if err != nil {
+		fmt.Printf("Error opening file: %s\n", err)
+		return err
+	}
+	defer fileOut.Close()
+	writer := gzip.NewWriter(fileOut)
+
+	for _, finalLinkToSave := range linksToSave {
+		_, err = writer.Write([]byte(fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%d|%d|%s|%s|%s|%d\n",
+			finalLinkToSave.LinkDomain,
+			finalLinkToSave.LinkSubDomain,
+			finalLinkToSave.LinkPath,
+			finalLinkToSave.LinkRawQuery,
+			finalLinkToSave.LinkScheme,
+			finalLinkToSave.PageHost,
+			finalLinkToSave.PagePath,
+			finalLinkToSave.PageRawQuery,
+			finalLinkToSave.PageScheme,
+			finalLinkToSave.LinkText,
+			finalLinkToSave.NoFollow,
+			finalLinkToSave.NoIndex,
+			finalLinkToSave.DateFrom,
+			finalLinkToSave.DateTo,
+			finalLinkToSave.IP,
+			finalLinkToSave.Qty,
+		)))
+		if err != nil {
+			return err
+		}
+
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return err
 	}
 
 	return nil

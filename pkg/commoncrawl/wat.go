@@ -139,6 +139,8 @@ var (
 	domainCacheMutex sync.RWMutex
 )
 
+const debugTestMode = true // import only 20 wat files in 2 segments. To verify all mechanisms/
+
 // InitImport - initialize import by downloading segments file and extracting segments into segmentList
 func InitImport(archiveName string) ([]WatSegment, error) {
 	var err error
@@ -182,17 +184,17 @@ func InitImport(archiveName string) ([]WatSegment, error) {
 
 	fileNumber := ""
 	segmentList = make([]WatSegment, 0, len(segments))
-	// TODO: this is just a test with collecting only 4 links
 	j := 0
 	for segment, fileList := range segments {
-		if j >= 4 {
+		//this enable debugTestMode limit
+		if debugTestMode == true && j >= 2 {
 			break
 		}
 		watFileList := make([]WatFile, 0, len(fileList))
-		// TODO: this is just a test with collecting only 4 links
 		i := 0
 		for _, file := range fileList {
-			if i >= 2 {
+			//this enable debugTestMode limit
+			if debugTestMode == true && i >= 20 {
 				break
 			}
 			fileNumber, err = ExtractWatFileNumber(file)
@@ -431,8 +433,7 @@ func readPageContent(line string, sourceURLRecord *URLRecord) *WatPage {
 
 	watPage.Links, watPage.InternalLinks, watPage.ExternalLinks, err = parseLinks(linksData, sourceURLRecord, *watPage.NoFollow)
 	if err != nil {
-		// TODO: verify if these errors are often and if they are we should ignore them
-		fmt.Printf("*")
+		//we ignore broken links data in source document
 		return nil
 	}
 
@@ -571,6 +572,11 @@ func verifyRecordQuality(record *URLRecord) bool {
 
 	// validate query length. Over 200 is probably garbage
 	if record.RawQuery != nil && len(*record.RawQuery) > 200 {
+		return false
+	}
+
+	// validate if RawQuery contains | char
+	if record.RawQuery != nil && strings.Contains(*record.RawQuery, "|") {
 		return false
 	}
 

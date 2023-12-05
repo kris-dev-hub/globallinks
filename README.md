@@ -36,6 +36,10 @@ go run cmd/importer/main.go CC-MAIN-2021-04
 
 Replace CC-MAIN-2021-04 with your chosen archive name and 20210115134101 with the segment name.
 
+## Test settings
+
+wat.go file contains line "const debugTestMode = false". Setting it to true import only 10 files from 3 segments. Allow to watch whole process on limited data. It will use only 30 files for test and not 90000.
+
 ### Output
 
 links files are stored in data/links/
