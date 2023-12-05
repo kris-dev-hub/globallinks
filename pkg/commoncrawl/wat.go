@@ -139,7 +139,7 @@ var (
 	domainCacheMutex sync.RWMutex
 )
 
-const debugTestMode = true // import only 20 wat files in 2 segments. To verify all mechanisms/
+const debugTestMode = false // import only 20 wat files in 2 segments. To verify all mechanisms/
 
 // InitImport - initialize import by downloading segments file and extracting segments into segmentList
 func InitImport(archiveName string) ([]WatSegment, error) {
@@ -440,7 +440,7 @@ func readPageContent(line string, sourceURLRecord *URLRecord) *WatPage {
 	return &watPage
 }
 
-// GetInfoFromMeta returns noindex and nofollow values from meta tags
+// getNoFollowNoIndex returns noindex and nofollow values from meta tags
 func getNoFollowNoIndex(metas string) (int, int) {
 	// using int instead of bool to use less space in text file
 	noindex := 0

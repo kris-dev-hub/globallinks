@@ -176,7 +176,7 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 			panic(fmt.Sprintf("Failed to create file: %v", err))
 		}
 		if !fileutils.FileExists(recordWatFile) {
-			err := fileutils.DownloadFile("https://data.commoncrawl.org/"+watFile.Path, recordWatFile, 1)
+			err := fileutils.DownloadFile("https://data.commoncrawl.org/"+watFile.Path, recordWatFile, 2)
 			if err != nil {
 				log.Fatalf("Could not load WAT file %s: %v", watFile.Path, err)
 			}

@@ -37,7 +37,7 @@ func DirExists(filename string) bool {
 func DownloadFile(url, outputPath string, maxRetries int) error {
 	var resp *http.Response
 	var err error
-	retryDelay := 3 * time.Second
+	retryDelay := 20 * time.Second
 
 	for i := 0; i <= maxRetries; i++ {
 		resp, err = http.Get(url)

@@ -616,3 +616,55 @@ func TestIsCorrectArchiveFormat(t *testing.T) {
 		})
 	}
 }
+
+func TestGetNoFollowNoIndex(t *testing.T) {
+	testCases := []struct {
+		name             string
+		metas            string
+		expectedNoIndex  int
+		expectedNoFollow int
+	}{
+		{
+			name:             "NoIndex and NoFollow",
+			metas:            `[{"name":"robots","content":"noindex, nofollow"}]`,
+			expectedNoIndex:  1,
+			expectedNoFollow: 1,
+		},
+		{
+			name:             "NoIndex only",
+			metas:            `[{"name":"robots","content":"noindex"}]`,
+			expectedNoIndex:  1,
+			expectedNoFollow: 0,
+		},
+		{
+			name:             "NoFollow only",
+			metas:            `[{"name":"robots","content":"nofollow"}]`,
+			expectedNoIndex:  0,
+			expectedNoFollow: 1,
+		},
+		{
+			name:             "Neither NoIndex nor NoFollow",
+			metas:            `[{"name":"robots","content":"index, follow"}]`,
+			expectedNoIndex:  0,
+			expectedNoFollow: 0,
+		},
+		{
+			name:             "No robots meta tag",
+			metas:            `[{"name":"viewport","content":"width=device-width, initial-scale=1"}]`,
+			expectedNoIndex:  0,
+			expectedNoFollow: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			noIndex, noFollow := getNoFollowNoIndex(tc.metas)
+			if noIndex != tc.expectedNoIndex {
+				t.Errorf("Expected NoIndex to be %d, got %d", tc.expectedNoIndex, noIndex)
+			}
+			if noFollow != tc.expectedNoFollow {
+				t.Errorf("Expected NoFollow to be %d, got %d", tc.expectedNoFollow, noFollow)
+			}
+		})
+	}
+}

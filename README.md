@@ -1,6 +1,6 @@
 # GlobalLinks Project
 
-GlobalLinks is a link gathering tool based on the Common Crawl dataset. It's currently in alpha and under active development.
+GlobalLinks is a backlink gathering tool based on the Common Crawl dataset. It's currently in alpha and under active development.
 
 ## Features
 
@@ -36,7 +36,7 @@ go run cmd/importer/main.go CC-MAIN-2021-04
 
 Replace CC-MAIN-2021-04 with your chosen archive name and 20210115134101 with the segment name.
 
-Distributing links data into tree directory structure to be able to build API on top of it.
+Distributing backlinks data into tree directory structure to be able to build API on top of it.
 
 ```sh
 go run cmd/storelinks/main.go data/links/compact_0.txt.gz data/linkdb
@@ -46,7 +46,6 @@ go run cmd/storelinks/main.go data/links/compact_0.txt.gz data/linkdb
 Replace data/links/compact_0.txt.gz with your chosen compacted links file and data/linkdb with your chosen output directory.
 Repeating this command for all compacted segment links files will update the tree directory structure in data/linkdb.
 
-```sh
 
 
 ## Test settings
