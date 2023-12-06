@@ -1007,6 +1007,17 @@ func SelectSegmentToImport(segmentList []WatSegment) (WatSegment, error) {
 	return WatSegment{}, errors.New("no segment to import")
 }
 
+// SelectSegmentByID - select segment to import by ID
+func SelectSegmentByID(segmentList []WatSegment, segmentID int) (WatSegment, error) {
+	for _, segment := range segmentList {
+		if segment.SegmentID == segmentID {
+			return segment, nil
+		}
+	}
+
+	return WatSegment{}, errors.New("segment not found with given ID")
+}
+
 // UpdateSegmentLinkImportStatus - update segment link import status
 func UpdateSegmentLinkImportStatus(segmentList *[]WatSegment, segmentName string, filePath string) error {
 	fileID, err := ExtractWatFileNumber(filePath)

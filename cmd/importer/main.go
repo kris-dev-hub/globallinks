@@ -18,7 +18,7 @@ import (
 	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
 )
 
-const savePageData = true
+const savePageData = false // collect and parse page data
 
 const (
 	extensionTxtGz = ".txt.gz"
@@ -49,9 +49,10 @@ type FileLinkCompacted struct {
 func main() {
 	var err error
 	var archiveName string
+	var segmentsToImport []int
 
 	if len(os.Args) < 2 {
-		fmt.Println("No archive name or segment specified. Example: ./importer CC-MAIN-2020-24 <num_of_wat_to_import> <num_of_threads>")
+		fmt.Println("No archive name or segment specified. Example: ./importer CC-MAIN-2020-24 <num_of_wat_to_import> <num_of_threads> <optional_segment_list>")
 		os.Exit(1)
 	}
 
@@ -74,6 +75,16 @@ func main() {
 			numThreads = 1
 		}
 		os.Setenv("GLOBALLINKS_MAXTHREADS", strconv.Itoa(numThreads))
+	}
+
+	if len(os.Args) > 4 {
+		commandLineSegments := os.Args[4]
+		segmentsToImport, err = parseSegmentInput(commandLineSegments)
+		if err != nil {
+			fmt.Println("Invalid segment input: " + err.Error())
+			os.Exit(1)
+		}
+
 	}
 
 	archiveName = os.Args[1]
@@ -99,6 +110,28 @@ func main() {
 	commoncrawl.ValidateSegmentImportEndAtStart(&segmentList, dataDir, extensionTxtGz)
 
 	fmt.Printf("Importing %d segments\n", len(segmentList))
+
+	if len(segmentsToImport) > 0 {
+		for _, segmentID := range segmentsToImport {
+
+			// select only segments from command line
+			segment, err := commoncrawl.SelectSegmentByID(segmentList, segmentID)
+			if err != nil {
+				log.Printf("Could not select segment to import: %v\n", err)
+				os.Exit(0)
+			}
+
+			fmt.Println(segment.Segment)
+			os.Exit(0)
+
+			// parse only unfinished segments
+			if segment.ImportEnded == nil && maxWatFiles > 0 {
+				fmt.Printf("Importing segment %s\n", segment.Segment)
+				importSegment(segment, dataDir, &segmentList, maxThreads, &maxWatFiles)
+			}
+		}
+		os.Exit(0)
+	}
 
 	for i := 0; i < len(segmentList); i++ {
 
@@ -290,7 +323,7 @@ func setDataDirectory() string {
 
 // sortOutFilesWithBashGz - sort the file with bash sort and save as gz with segment in name - you can use these segments to move pre processed data to other server
 func sortOutFilesWithBashGz(segmentSortedFile string, segmentLinksDir string) error {
-	cmdStr := "zcat " + segmentLinksDir + "/*.txt.gz | sort -u -S 2G | gzip > " + segmentSortedFile
+	cmdStr := "zcat " + segmentLinksDir + "/*.txt.gz | sort -u -S 1G | gzip > " + segmentSortedFile
 
 	// Execute the command
 	cmd := exec.Command("bash", "-c", cmdStr)
@@ -334,7 +367,7 @@ func aggressiveCompacting(segmentSortedFile string, linkSegmentCompacted string)
 	fileLink := FileLinkCompacted{}
 	finalLink := FileLinkCompacted{}
 
-	var linksToSave []FileLinkCompacted
+	linksToSave := make([]FileLinkCompacted, 10000)
 
 	i := 0
 	for scanner.Scan() {
@@ -371,13 +404,13 @@ func aggressiveCompacting(segmentSortedFile string, linkSegmentCompacted string)
 			finalLink = fileLink
 		}
 		// save file every 10000 lines and reset linksToSave
-		if i > 10000 {
+		if i >= 10000 {
 			i = 0
 			err = saveFinalLinksToFile(segmentCompactedFile, linksToSave)
 			if err != nil {
 				return err
 			}
-			linksToSave = []FileLinkCompacted{}
+			linksToSave = make([]FileLinkCompacted, 10000)
 		}
 	}
 
@@ -437,9 +470,11 @@ func compactSegmentData(segment commoncrawl.WatSegment, dataDir commoncrawl.Data
 		if err != nil {
 			return fmt.Errorf("could not delete WAT processed files: %v", err)
 		}
-		err = sortOutFilesWithBashGz(pageSegmentSorted, dataDir.TmpDir+"/"+segment.Segment+pageDir)
-		if err != nil {
-			return fmt.Errorf("could not sort file: %v", err)
+		if savePageData == true {
+			err = sortOutFilesWithBashGz(pageSegmentSorted, dataDir.TmpDir+"/"+segment.Segment+pageDir)
+			if err != nil {
+				return fmt.Errorf("could not sort file: %v", err)
+			}
 		}
 		err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + pageDir)
 		if err != nil {
@@ -454,7 +489,10 @@ func compactSegmentData(segment commoncrawl.WatSegment, dataDir commoncrawl.Data
 		if err != nil {
 			return fmt.Errorf("could not compact file: %v", err)
 		}
-		// TODO: delete sort file after aggressive compacting
+		err = os.Remove(linkSegmentSorted)
+		if err != nil {
+			return fmt.Errorf("could not delete file: %v", err)
+		}
 
 		// save info that segment was finished
 		err = commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
@@ -553,4 +591,51 @@ func saveFinalLinksToFile(segmentCompactedFile string, linksToSave []FileLinkCom
 	}
 
 	return nil
+}
+
+// parseSegmentInput - parse segment input from command line to generate list of segmentID to import
+func parseSegmentInput(segments string) ([]int, error) {
+	var results []int
+	parts := strings.Split(segments, ",")
+	if len(parts) > 1 {
+		for _, part := range parts {
+			result, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, result)
+		}
+		return results, nil
+	}
+
+	if strings.Contains(segments, "-") {
+		rangeParts := strings.Split(segments, "-")
+		if len(rangeParts) != 2 {
+			return nil, fmt.Errorf("invalid range: %s", segments)
+		}
+		start, err := strconv.Atoi(rangeParts[0])
+		if err != nil {
+			return nil, err
+		}
+		end, err := strconv.Atoi(rangeParts[1])
+		if err != nil {
+			return nil, err
+		}
+		if start > end {
+			return nil, fmt.Errorf("invalid range: %s", segments)
+		}
+		for i := start; i <= end; i++ {
+			results = append(results, i)
+		}
+		return results, nil
+	}
+
+	// Handling a single number
+	number, err := strconv.Atoi(segments)
+	if err != nil {
+		return nil, err
+	}
+	results = append(results, number)
+
+	return results, nil
 }

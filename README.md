@@ -122,6 +122,8 @@ docker pull krisdevhub/globallinks:latest
 docker run --name globallinks-test -d -v ./watdata:/app/data krisdevhub/globallinks:latest /app/importer CC-MAIN-2021-04 4 2
 ```
 
+At the end you can also set number of segments you want to import. Range from 0 to 99. Format 2,3,4,5 or 2-5 is accepted.
+
 ### Data
 
 example record from link file:
