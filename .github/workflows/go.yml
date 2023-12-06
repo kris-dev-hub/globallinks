@@ -21,7 +21,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.54
-          args: run -c .golangci.toml ./...
+          args: -c .golangci.toml ./...
 
   build:
     runs-on: ubuntu-latest
