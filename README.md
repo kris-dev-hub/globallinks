@@ -105,7 +105,7 @@ The Docker image is available on Docker Hub.
 - **Number of Threads:** `2` - Number of threads to use (ranging from 1 to 16).
 
 ### Resource Utilization and Performance
-- **Memory Usage:** One segment typically consumes approximately 1.5 GB of RAM. Therefore, running 4 threads will require about 6 GB of RAM.
+- **Memory Usage:** One tread typically consumes approximately 1.5 GB of RAM. Therefore, running 4 threads will require about 6 GB of RAM.
 - **Processing Time:** The time taken to process one segment varies depending on CPU and network speed. It generally takes a few hours.
 
 ### Data Storage
@@ -122,6 +122,17 @@ docker pull krisdevhub/globallinks:latest
 docker run --name globallinks-test -d -v ./watdata:/app/data krisdevhub/globallinks:latest /app/importer CC-MAIN-2021-04 4 2
 ```
 
+### Data
+
+example record from link file:
+
+```sh
+blogmedyczny.edu.pl||/czasopisma-kobiece-i-tabletki-na-odchudzanie/||2|turysta24.pl|/tabletki-odchudzajace-moga-pomoc-zredukowac-wage/||2|turysta24.pl|/tabletki-odchudzajace-moga-pomoc-zredukowac-wage/||2|Theme Palace|0|0|2023-02-04|51.75.43.178
+
+LinkedDomain|LinkedSubdomain|LinkedPath|LinkedQuery|LinkedScheme|PageHost|PagePath|PageQuery|PageScheme|LinkText|NoFollow|NoIndex|DateImported|IP
+```
+
+There are around 6 billion unique external backlinks per month in the common crawl data and the application is able to analyse and collect them all.
 
 ## System Requirements
 - Go 1.21 or later.
