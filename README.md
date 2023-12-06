@@ -96,6 +96,33 @@ Stop running docker image.
 make docker-stop
 ```
 
+## Docker Image Availability
+The Docker image is available on Docker Hub.
+
+### Parameters Description
+- **Archive Name:** `CC-MAIN-2021-04` - Name of the archive to be parsed.
+- **Number of Files:** `4` - Number of files to be parsed. Currently, there are 90,000 files in one archive, with 900 in each segment. Parsing at least one segment is necessary to obtain compacted results.
+- **Number of Threads:** `2` - Number of threads to use (ranging from 1 to 16).
+
+### Resource Utilization and Performance
+- **Memory Usage:** One segment typically consumes approximately 1.5 GB of RAM. Therefore, running 4 threads will require about 6 GB of RAM.
+- **Processing Time:** The time taken to process one segment varies depending on CPU and network speed. It generally takes a few hours.
+
+### Data Storage
+Data will be stored in the `watdata` directory:
+- `links`: Contains the final parsed segment links.
+- `pages`: Includes the final parsed segment pages.
+- `tmp/links`: Temporary storage for parsed segment link files.
+- `tmp/pages`: Temporary storage for parsed segment page files.
+- `tmp/wat`: Temporary storage for downloaded WAT files to be parsed.
+
+### Example
+```sh
+docker pull krisdevhub/globallinks:latest   
+docker run --name globallinks-test -d -v ./watdata:/app/data krisdevhub/globallinks:latest /app/importer CC-MAIN-2021-04 4 2
+```
+
+
 ## System Requirements
 - Go 1.21 or later.
 - Requires 1.5GB of RAM per thread.
