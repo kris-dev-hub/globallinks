@@ -30,3 +30,15 @@ compose-down: ## Stops the docker-compose
 docker-rm-volumes: ## Removes all docker volumes
 	@echo "Removing all docker volumes"
 	docker volume rm $$(docker volume ls -qf dangling=true)
+
+docker-build: ## Builds the Docker image
+	@echo "Building Docker image"
+	docker build -t watlinksapp .
+
+docker-start: ## Starts the Docker container
+	@echo "Starting Docker container"
+	docker run -d -v ./watdata:/app/data watlinksapp /app/importer $(ARCHIVENAME) $(GLOBALLINKS_MAXWATFILES) $(GLOBALLINKS_MAXTHREADS)
+
+docker-stop: ## Stops the Docker container
+	@echo "Stopping Docker container"
+	docker stop $$(docker ps -q --filter ancestor=watlinksapp)
