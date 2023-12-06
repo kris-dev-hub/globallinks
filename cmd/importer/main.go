@@ -121,9 +121,6 @@ func main() {
 				os.Exit(0)
 			}
 
-			fmt.Println(segment.Segment)
-			os.Exit(0)
-
 			// parse only unfinished segments
 			if segment.ImportEnded == nil && maxWatFiles > 0 {
 				fmt.Printf("Importing segment %s\n", segment.Segment)
