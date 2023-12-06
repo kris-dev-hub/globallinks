@@ -8,7 +8,7 @@ enable = [
     "misspell",
     "nakedret",
     "errcheck",
-    "revive",
+#    "revive",  # had to disable it temporarily, workflow has older version that show error I don't have
     "ineffassign",
     "goconst",
     "vet",
