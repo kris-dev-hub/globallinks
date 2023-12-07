@@ -18,7 +18,10 @@ import (
 	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
 )
 
-const savePageData = false // collect and parse page data
+const (
+	savePageData     = false // collect and parse page data
+	lowDiscSpaceMode = false // encrypt tmp files to save disc space during sorting
+)
 
 const (
 	extensionTxtGz = ".txt.gz"
@@ -321,6 +324,10 @@ func setDataDirectory() string {
 // sortOutFilesWithBashGz - sort the file with bash sort and save as gz with segment in name - you can use these segments to move pre processed data to other server
 func sortOutFilesWithBashGz(segmentSortedFile string, segmentLinksDir string) error {
 	cmdStr := "zcat " + segmentLinksDir + "/*.txt.gz | sort -u -S 1G | gzip > " + segmentSortedFile
+	if lowDiscSpaceMode == true {
+		// this solves disc problem on VPS servers at cost of sorting performance
+		cmdStr = "zcat " + segmentLinksDir + "/*.txt.gz | sort --compress-program=lzop -u -S 1G | gzip > " + segmentSortedFile
+	}
 
 	// Execute the command
 	cmd := exec.Command("bash", "-c", cmdStr)

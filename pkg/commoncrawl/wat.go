@@ -262,6 +262,7 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 	domainCache = map[string]string{}
 	domainCacheMutex.Unlock()
 
+	// TODO: I should reserve memory for maps to avoid reallocation
 	pageMap := make(map[string]FilePage)
 	linkMap := make(map[string]FileLink)
 
@@ -378,6 +379,8 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 			return err
 		}
 	}
+
+	// TODO: probably should reset pageMap and linkMap to free memory faster
 
 	// Check for errors during scanning
 	if err := scanner.Err(); err != nil {
