@@ -20,7 +20,7 @@ import (
 
 const (
 	savePageData     = false // collect and parse page data
-	lowDiscSpaceMode = false // encrypt tmp files to save disc space during sorting
+	lowDiscSpaceMode = false // encrypt tmp files to save disc space during sorting, requires lzop installed
 )
 
 const (
@@ -53,6 +53,18 @@ func main() {
 	var err error
 	var archiveName string
 	var segmentsToImport []int
+
+	if len(os.Args) == 4 && os.Args[1] == "compacting" {
+		fmt.Println("compacting")
+		err = aggressiveCompacting(os.Args[2], os.Args[3])
+		if err != nil {
+			fmt.Println("Aggressive compacting failed: " + err.Error())
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	os.Exit(0)
 
 	if len(os.Args) < 2 {
 		fmt.Println("No archive name or segment specified. Example: ./importer CC-MAIN-2020-24 <num_of_wat_to_import> <num_of_threads> <optional_segment_list>")
@@ -565,6 +577,10 @@ func saveFinalLinksToFile(segmentCompactedFile string, linksToSave []FileLinkCom
 	writer := gzip.NewWriter(fileOut)
 
 	for _, finalLinkToSave := range linksToSave {
+		//ignore empty records created while building linkToSave
+		if finalLinkToSave.LinkDomain == "" {
+			continue
+		}
 		_, err = writer.Write([]byte(fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%d|%d|%s|%s|%s|%d\n",
 			finalLinkToSave.LinkDomain,
 			finalLinkToSave.LinkSubDomain,

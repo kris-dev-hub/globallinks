@@ -262,7 +262,7 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 	domainCache = map[string]string{}
 	domainCacheMutex.Unlock()
 
-	// TODO: I should reserve memory for maps to avoid reallocation
+	// TODO: I should reserve memory for maps to avoid realocation - just remember to ignore empty maps when saving to file
 	pageMap := make(map[string]FilePage)
 	linkMap := make(map[string]FileLink)
 

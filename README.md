@@ -46,7 +46,11 @@ go run cmd/storelinks/main.go data/links/compact_0.txt.gz data/linkdb
 Replace data/links/compact_0.txt.gz with your chosen compacted links file and data/linkdb with your chosen output directory.
 Repeating this command for all compacted segment links files will update the tree directory structure in data/linkdb.
 
+Compacting links files into one file manually. It is possible to compact files later: 
 
+```sh
+go run cmd/storelinks/main.go compacting data/links/sort_50.txt.gz data/links/compact_50.txt.gz
+```
 
 ## Test settings
 
