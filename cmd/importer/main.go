@@ -577,7 +577,7 @@ func saveFinalLinksToFile(segmentCompactedFile string, linksToSave []FileLinkCom
 	writer := gzip.NewWriter(fileOut)
 
 	for _, finalLinkToSave := range linksToSave {
-		//ignore empty records created while building linkToSave
+		// ignore empty records created while building linkToSave
 		if finalLinkToSave.LinkDomain == "" {
 			continue
 		}
