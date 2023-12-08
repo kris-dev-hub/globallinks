@@ -489,10 +489,10 @@ func compactSegmentData(segment commoncrawl.WatSegment, dataDir commoncrawl.Data
 			if err != nil {
 				return fmt.Errorf("could not sort file: %v", err)
 			}
-		}
-		err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + pageDir)
-		if err != nil {
-			return fmt.Errorf("could not delete WAT processed files: %v", err)
+			err = deleteWatPreProcessed(dataDir.TmpDir + "/" + segment.Segment + pageDir)
+			if err != nil {
+				return fmt.Errorf("could not delete WAT processed files: %v", err)
+			}
 		}
 		err = fileutils.DeleteDirectoryIfEmpty(dataDir.TmpDir + "/" + segment.Segment)
 		if err != nil {
