@@ -64,8 +64,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	os.Exit(0)
-
 	if len(os.Args) < 2 {
 		fmt.Println("No archive name or segment specified. Example: ./importer CC-MAIN-2020-24 <num_of_wat_to_import> <num_of_threads> <optional_segment_list>")
 		os.Exit(1)
