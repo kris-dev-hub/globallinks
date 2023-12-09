@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/kris-dev-hub/globallinks/pkg/healthcheck"
 
 	"github.com/klauspost/compress/gzip"
 
@@ -21,6 +24,7 @@ import (
 const (
 	savePageData     = false // collect and parse page data
 	lowDiscSpaceMode = false // encrypt tmp files to save disc space during sorting, requires lzop installed
+	healthCheckMode  = true  // enable health check api to monitor application on port 3005: http://localhost:3005/health
 )
 
 const (
@@ -141,6 +145,21 @@ func main() {
 			}
 		}
 		os.Exit(0)
+	}
+
+	// allow to monitor script health on external servers
+	if healthCheckMode == true {
+		// init all the routes
+		router := healthcheck.InitRoutes()
+
+		// start http server in a new goroutine
+		go func() {
+			// start http server
+			if err := http.ListenAndServe(":3005", router); err != nil {
+				fmt.Println("Failed to set up server")
+				panic(err)
+			}
+		}()
 	}
 
 	for i := 0; i < len(segmentList); i++ {

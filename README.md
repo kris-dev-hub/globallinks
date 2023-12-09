@@ -31,10 +31,12 @@ export GLOBALLINKS_DATAPATH=data
 Start by selecting an archive and its segment name from Common Crawl https://www.commoncrawl.org/get-started. Then run the following command:
 
 ```sh
-go run cmd/importer/main.go CC-MAIN-2021-04
+go run cmd/importer/main.go CC-MAIN-2021-04 900 4 0-10
+
+go run cmd/importer/main.go [archive_name] [num_files_to_process] [num_threads] [num_segments]
 ```
 
-Replace CC-MAIN-2021-04 with your chosen archive name and 20210115134101 with the segment name.
+Replace CC-MAIN-2021-04 with your chosen archive name. One segment had up to 1000 files, num_treads is the number of processor threads to use and num segment is the number of segment to import or range: examples 10 , or 5-10, there are 100 segments in one archive
 
 Distributing backlinks data into tree directory structure to be able to build API on top of it.
 
@@ -107,9 +109,10 @@ The Docker image is available on Docker Hub.
 - **Archive Name:** `CC-MAIN-2021-04` - Name of the archive to be parsed.
 - **Number of Files:** `4` - Number of files to be parsed. Currently, there are 90,000 files in one archive, with 900 in each segment. Parsing at least one segment is necessary to obtain compacted results.
 - **Number of Threads:** `2` - Number of threads to use (ranging from 1 to 16).
+- **Segments id:** `2` or `0-10` - Number of segments to import. Range from 0 to 99. Format 2,3,4,5 or 2-5 is accepted.
 
 ### Resource Utilization and Performance
-- **Memory Usage:** One tread typically consumes approximately 1.5 GB of RAM. Therefore, running 4 threads will require about 6 GB of RAM.
+- **Memory Usage:** One tread typically consumes approximately 1.5 GB of RAM. Therefore, running 4 threads will require about 6 GB of RAM. 4GB of RAM is the minimum requirement.
 - **Processing Time:** The time taken to process one segment varies depending on CPU and network speed. It generally takes a few hours.
 
 ### Data Storage
