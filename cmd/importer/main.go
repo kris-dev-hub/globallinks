@@ -400,7 +400,7 @@ func aggressiveCompacting(segmentSortedFile string, linkSegmentCompacted string)
 	fileLink := FileLinkCompacted{}
 	finalLink := FileLinkCompacted{}
 
-	linksToSave := make([]FileLinkCompacted, 10000)
+	linksToSave := make([]FileLinkCompacted, 0, 10000)
 
 	i := 0
 	for scanner.Scan() {
@@ -443,7 +443,7 @@ func aggressiveCompacting(segmentSortedFile string, linkSegmentCompacted string)
 			if err != nil {
 				return err
 			}
-			linksToSave = make([]FileLinkCompacted, 10000)
+			linksToSave = make([]FileLinkCompacted, 0, 10000)
 		}
 	}
 

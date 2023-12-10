@@ -123,6 +123,26 @@ Data will be stored in the `watdata` directory:
 - `tmp/pages`: Temporary storage for parsed segment page files.
 - `tmp/wat`: Temporary storage for downloaded WAT files to be parsed.
 
+## MongoDB
+
+Final data will be stored in MongoDB. The database name is `linkdb` and the collection name is `links`
+
+Storage config in /etc/mongodb.conf:
+
+```sh
+storage:
+  dbPath: /var/lib/mongodb
+  engine: wiredTiger
+  wiredTiger:
+    engineConfig:
+      directoryForIndexes: true
+    collectionConfig:
+      blockCompressor: zlib
+```
+
+This enables compression for the database and separate directory for indexes. Every segment require approximately 1.6 GB space for the collection and 300 MB for the indexes. 
+
+
 ### Example
 ```sh
 docker pull krisdevhub/globallinks:latest   
@@ -145,8 +165,9 @@ There are around 6 billion unique external backlinks per month in the common cra
 
 ## System Requirements
 - Go 1.21 or later.
-- Requires 1.5GB of RAM per thread.
-- Minimum 40GB of free disk for every segment parsed.
+- 4GB of RAM is the minimum requirement. Requires 1.5GB of RAM per every next thread for parsing.
+- Minimum 50GB of free disk for every segment parsed at the same time.
+- MongoDB require minimum 2GB of disc space for every segment. 200MB of ram for every imported segment is optimal.
 
 ## Alpha Version Disclaimer
 This is an alpha version of GlobalLinks and is subject to changes. The software is provided "as is", without warranty of any kind.
