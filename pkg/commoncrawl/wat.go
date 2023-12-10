@@ -572,6 +572,10 @@ func verifyRecordQuality(record *URLRecord) bool {
 	if !validateHost(*record.Host) {
 		return false
 	}
+	// validate domain problems
+	if !IsValidDomain(*record.Domain) {
+		return false
+	}
 
 	// validate query length. Over 200 is probably garbage
 	if record.RawQuery != nil && len(*record.RawQuery) > 200 {
@@ -623,6 +627,14 @@ func validateHost(host string) bool {
 		return false
 	}
 	return true
+}
+
+// final verification of domain
+func IsValidDomain(domain string) bool {
+	// Regular expression to match valid domain characters and rules
+	// This regex does not cover all possible TLDs and might need modification for specific cases
+	re := regexp.MustCompile(`^(?i)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$`)
+	return re.MatchString(domain)
 }
 
 // buildURLRecord - build url record from source url, check domain, path, query, etc.
