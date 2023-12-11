@@ -23,7 +23,7 @@ import (
 
 const (
 	savePageData     = false // collect and parse page data
-	lowDiscSpaceMode = false // encrypt tmp files to save disc space during sorting, requires lzop installed
+	lowDiscSpaceMode = true  // encrypt tmp files to save disc space during sorting, requires lzop installed
 	healthCheckMode  = true  // enable health check api to monitor application on port 3005: http://localhost:3005/health
 )
 

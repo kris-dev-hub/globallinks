@@ -38,21 +38,30 @@ type FileLinkCompacted struct {
 	Qty           int    `json:"qty"`
 }
 
+type ImportedSegments struct {
+	ArchName string `json:"archName"`
+	Segment  string `json:"segment"`
+}
+
 func main() {
 	var err error
 
-	if len(os.Args) < 2 {
-		fmt.Println("Require target directory and source file : ./storelinks data/links/compact_01.tar.gz ")
+	if len(os.Args) < 4 {
+		fmt.Println("Require target directory and source file : ./storelinks data/links/compact_01.tar.gz CC-MAIN-2021-04 1")
 		os.Exit(1)
 	}
 
 	linkSegmentCompacted := os.Args[1]
+	importInfo := ImportedSegments{ArchName: os.Args[2], Segment: os.Args[3]}
 
 	if !fileutils.FileExists(linkSegmentCompacted) {
 		fmt.Println("Source file does not exist")
 		os.Exit(1)
 	}
-	err = uploadDataToDatabase(linkSegmentCompacted)
+
+	// TODO: validate if segment is not already imported in imported collection
+
+	err = uploadDataToDatabase(linkSegmentCompacted, importInfo)
 	if err != nil {
 		log.Fatalf("Could not split files: %v", err)
 	}
@@ -62,7 +71,7 @@ func main() {
 }
 
 // split data into many files sorted by domain names
-func uploadDataToDatabase(sortFile string) error {
+func uploadDataToDatabase(sortFile string, importInfo ImportedSegments) error {
 	// Set client options and connect to MongoDB
 	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
 	client, err := mongo.Connect(context.TODO(), clientOptions)
@@ -157,6 +166,12 @@ func uploadDataToDatabase(sortFile string) error {
 		if err != nil {
 			log.Fatal(err)
 		}
+	}
+
+	collectionImported := client.Database("linkdb").Collection("imported")
+	_, err = collectionImported.InsertOne(context.TODO(), importInfo)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	return nil
