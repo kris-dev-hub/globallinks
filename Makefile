@@ -8,8 +8,16 @@ GOFUMPT=gofumpt -l -w
 #thanks to https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 
 build: ## Builds the binary
-	@echo "Building binary"
+	@echo "Building import binary"
 	go build -o bin/importer cmd/importer/main.go
+
+build-storelinks: ## Builds the binary
+	@echo "Building storelinks binary"
+	go build -o bin/storelinks cmd/storelinks/main.go
+
+build-linksapi: ## Builds the binary
+	@echo "Building linksapi binary"
+	go build -o bin/linksapi cmd/linksapi/main.go
 
 lint: $(GOLANGCI) ## Runs golangci-lint with predefined configuration
 	@echo "Applying linter"
