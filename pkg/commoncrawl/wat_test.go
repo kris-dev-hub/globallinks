@@ -215,7 +215,7 @@ func TestCountFilesInSegmentToProcess(t *testing.T) {
 func TestGenSubdomain(t *testing.T) {
 	host := "www.test.com"
 	domain := "test.com"
-	urlRecord := URLRecord{Host: &host, Domain: &domain}
+	urlRecord := URLRecord{Host: host, Domain: domain}
 
 	if genSubdomain(&urlRecord) != "www" {
 		t.Errorf("Expected www, got %s", genSubdomain(&urlRecord))
@@ -319,8 +319,8 @@ func TestCheckPageCanonicalLink(t *testing.T) {
 			jsonData: `{"Envelope":{"Payload-Metadata":{"HTTP-Response-Metadata":{"HTML-Metadata":{"Head":{"Link":[{"path":"/","url":"http://example.com/page","rel":"canonical","type":""}]}}}}}}`,
 			watPage: WatPage{
 				URLRecord: &URLRecord{
-					Host: &[]string{"example.com"}[0],
-					Path: &[]string{"/page"}[0],
+					Host: []string{"example.com"}[0],
+					Path: []string{"/page"}[0],
 				},
 			},
 			want: true,
@@ -330,8 +330,8 @@ func TestCheckPageCanonicalLink(t *testing.T) {
 			jsonData: `{"Envelope":{"Payload-Metadata":{"HTTP-Response-Metadata":{"HTML-Metadata":{"Head":{"Link":[{"path":"/","url":"http://example.org/page","rel":"canonical","type":""}]}}}}}}`,
 			watPage: WatPage{
 				URLRecord: &URLRecord{
-					Host: &[]string{"example.com"}[0],
-					Path: &[]string{"/page"}[0],
+					Host: []string{"example.com"}[0],
+					Path: []string{"/page"}[0],
 				},
 			},
 			want: false,
@@ -487,15 +487,15 @@ func TestBuildURLRecord(t *testing.T) {
 			sourceURL: "http://example.com/path?query=1#fragment",
 			want:      true,
 			wantRecord: URLRecord{
-				URL:       &[]string{"http://example.com/path?query=1#fragment"}[0],
-				Scheme:    &[]string{"1"}[0], // Assuming setScheme returns "1" for "http"
-				Host:      &[]string{"example.com"}[0],
-				Path:      &[]string{"/path"}[0],
-				RawQuery:  &[]string{"query=1"}[0],
-				Fragment:  &[]string{"fragment"}[0],
-				Domain:    &[]string{"example.com"}[0],
-				SubDomain: &[]string{""}[0], // Assuming genSubdomain returns empty for this case
-				Text:      &[]string{""}[0],
+				URL:       []string{"http://example.com/path?query=1#fragment"}[0],
+				Scheme:    []string{"1"}[0], // Assuming setScheme returns "1" for "http"
+				Host:      []string{"example.com"}[0],
+				Path:      []string{"/path"}[0],
+				RawQuery:  []string{"query=1"}[0],
+				Fragment:  []string{"fragment"}[0],
+				Domain:    []string{"example.com"}[0],
+				SubDomain: []string{""}[0], // Assuming genSubdomain returns empty for this case
+				Text:      []string{""}[0],
 			},
 		},
 		{
@@ -528,33 +528,33 @@ func TestVerifyRecordQuality(t *testing.T) {
 		{
 			name: "Valid Record",
 			record: URLRecord{
-				Domain:   &[]string{"example.com"}[0],
-				Host:     &[]string{"www.example.com"}[0],
-				RawQuery: &[]string{"query=value"}[0],
+				Domain:   []string{"example.com"}[0],
+				Host:     []string{"www.example.com"}[0],
+				RawQuery: []string{"query=value"}[0],
 			},
 			want: true,
 		},
 		{
 			name: "Cn Domain",
 			record: URLRecord{
-				Host:     &[]string{"www.example.cn"}[0],
-				RawQuery: &[]string{"query=value"}[0],
+				Host:     []string{"www.example.cn"}[0],
+				RawQuery: []string{"query=value"}[0],
 			},
 			want: false,
 		},
 		{
 			name: "Long query",
 			record: URLRecord{
-				Host:     &[]string{"www.example.cn"}[0],
-				RawQuery: &[]string{"query=value&a=sdddddddddddddddddddffffffffffffffffffffffffffffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeewwwwwwwwwwwwwwwwwwwwwwwwwwwwwwweeeeeeeeeeeeeeeeeeeewwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwweeeeeeeeeeeeeee"}[0],
+				Host:     []string{"www.example.cn"}[0],
+				RawQuery: []string{"query=value&a=sdddddddddddddddddddffffffffffffffffffffffffffffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeewwwwwwwwwwwwwwwwwwwwwwwwwwwwwwweeeeeeeeeeeeeeeeeeeewwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwweeeeeeeeeeeeeee"}[0],
 			},
 			want: false,
 		},
 		{
 			name: "LBroken host",
 			record: URLRecord{
-				Host:     &[]string{"www.examp[le.com"}[0],
-				RawQuery: &[]string{"query=value"}[0],
+				Host:     []string{"www.examp[le.com"}[0],
+				RawQuery: []string{"query=value"}[0],
 			},
 			want: false,
 		},
