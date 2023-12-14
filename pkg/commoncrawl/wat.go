@@ -30,16 +30,16 @@ import (
 
 // URLRecord - Define a struct to represent a URL record
 type URLRecord struct {
-	URL       *string
-	Scheme    *string
-	Host      *string
-	Path      *string
-	RawQuery  *string
-	Fragment  *string
-	Domain    *string
-	SubDomain *string
-	Text      *string // optional text from link
-	NoFollow  *int
+	URL       string
+	Scheme    string
+	Host      string
+	Path      string
+	RawQuery  string
+	Fragment  string
+	Domain    string
+	SubDomain string
+	Text      string // optional text from link
+	NoFollow  int
 }
 
 // WatPage - Define a struct to represent a wat page
@@ -325,10 +325,10 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 			if len(content.Links) > 0 {
 				// save page info to file
 				filePage := FilePage{
-					Host:          *content.URLRecord.Host,
-					Path:          *content.URLRecord.Path,
-					RawQuery:      *content.URLRecord.RawQuery,
-					Scheme:        *content.URLRecord.Scheme,
+					Host:          content.URLRecord.Host,
+					Path:          content.URLRecord.Path,
+					RawQuery:      content.URLRecord.RawQuery,
+					Scheme:        content.URLRecord.Scheme,
 					Title:         strings.ReplaceAll(*content.Title, "|", " "),
 					IP:            *content.IP,
 					Imported:      *content.Imported,
@@ -336,30 +336,31 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 					ExternalLinks: content.ExternalLinks,
 					NoIndex:       *content.NoIndex,
 				}
-				pageHash := fmt.Sprintf("%x", farm.Hash64([]byte(*content.URLRecord.Host+*content.URLRecord.Path+*content.URLRecord.RawQuery)))
+				pageHash := fmt.Sprintf("%x", farm.Hash64([]byte(content.URLRecord.Host+content.URLRecord.Path+content.URLRecord.RawQuery)))
 				pageMap[pageHash] = filePage
 				for _, link := range content.Links {
 					// write to file
 					noFollow := 0
-					if link.NoFollow != nil && *link.NoFollow == 1 {
+					if link.NoFollow == 1 {
 						noFollow = 1
 					}
 
 					fileLink := FileLink{
-						LinkHost:      *link.Host,
-						LinkPath:      *link.Path,
-						LinkRawQuery:  *link.RawQuery,
-						LinkScheme:    *link.Scheme,
-						LinkText:      strings.ReplaceAll(*link.Text, "|", " "),
+						LinkHost:      link.Host,
+						LinkPath:      link.Path,
+						LinkRawQuery:  link.RawQuery,
+						LinkScheme:    link.Scheme,
+						LinkText:      strings.ReplaceAll(link.Text, "|", " "),
 						NoFollow:      noFollow,
 						NoIndex:       *content.NoIndex,
 						Imported:      *content.Imported,
 						IP:            *content.IP,
 						PageHash:      pageHash,
-						LinkDomain:    *link.Domain,
-						LinkSubDomain: *link.SubDomain,
+						LinkDomain:    link.Domain,
+						LinkSubDomain: link.SubDomain,
 					}
-					linkHash := fmt.Sprintf("%x", farm.Hash64([]byte(*link.Host+*link.Path+*link.RawQuery+*content.URLRecord.Host+*content.URLRecord.Path+*content.URLRecord.RawQuery)))
+
+					linkHash := fmt.Sprintf("%x", farm.Hash64([]byte(link.Host+link.Path+link.RawQuery+content.URLRecord.Host+content.URLRecord.Path+content.URLRecord.RawQuery)))
 					linkMap[linkHash] = fileLink
 				}
 			}
@@ -514,8 +515,8 @@ func parseLinks(links string, sourceURLRecord *URLRecord, pageNoFollow int) ([]U
 		}
 
 		urlRecord = URLRecord{
-			Text:     &linkData.Text,
-			NoFollow: &noFollow,
+			Text:     linkData.Text,
+			NoFollow: noFollow,
 		}
 		validRecord := buildURLRecord(linkData.URL, &urlRecord)
 		if !validRecord {
@@ -523,13 +524,13 @@ func parseLinks(links string, sourceURLRecord *URLRecord, pageNoFollow int) ([]U
 		}
 
 		// ignore the same hosts
-		if *sourceURLRecord.Host == *urlRecord.Host {
+		if sourceURLRecord.Host == urlRecord.Host {
 			internalLinks++
 			continue
 		}
 
 		// ignore the same domains
-		if *sourceURLRecord.Domain == *urlRecord.Domain {
+		if sourceURLRecord.Domain == urlRecord.Domain {
 			externalLinks++
 			continue
 		}
@@ -540,11 +541,11 @@ func parseLinks(links string, sourceURLRecord *URLRecord, pageNoFollow int) ([]U
 		}
 
 		// link is a file so we ignore it
-		if urlRecord.Path == nil || isIgnoredExtension(*urlRecord.Path) {
+		if isIgnoredExtension(urlRecord.Path) {
 			continue
 		}
 
-		if isIgnoredDomain(*urlRecord.Domain) {
+		if isIgnoredDomain(urlRecord.Domain) {
 			externalLinks++
 			continue
 		}
@@ -560,30 +561,30 @@ func parseLinks(links string, sourceURLRecord *URLRecord, pageNoFollow int) ([]U
 // verifyRecordQuality - verify if record is valid, no blocked TLD, no broken host, no broken query, etc.
 func verifyRecordQuality(record *URLRecord) bool {
 	// could not find domain
-	if record.Domain == nil {
+	if record.Domain == "" {
 		return false
 	}
 
 	// ignore blocked TLD
-	if ignoreTLD(*record.Domain) {
+	if ignoreTLD(record.Domain) {
 		return false
 	}
 	// validate problems with host
-	if !validateHost(*record.Host) {
+	if !validateHost(record.Host) {
 		return false
 	}
 	// validate domain problems
-	if !IsValidDomain(*record.Domain) {
+	if !IsValidDomain(record.Domain) {
 		return false
 	}
 
 	// validate query length. Over 200 is probably garbage
-	if record.RawQuery != nil && len(*record.RawQuery) > 200 {
+	if len(record.RawQuery) > 200 {
 		return false
 	}
 
 	// validate if RawQuery contains | char
-	if record.RawQuery != nil && strings.Contains(*record.RawQuery, "|") {
+	if strings.Contains(record.RawQuery, "|") {
 		return false
 	}
 
@@ -644,7 +645,7 @@ func buildURLRecord(sourceURL string, urlRecord *URLRecord) bool {
 		return false
 	}
 
-	urlRecord.URL = &sourceURL
+	urlRecord.URL = sourceURL
 
 	// ignore sourceUrl that can't be parsed
 	parsedURL, err := url.Parse(sourceURL)
@@ -662,48 +663,40 @@ func buildURLRecord(sourceURL string, urlRecord *URLRecord) bool {
 		return false
 	}
 
-	// add "" to Text when it is empty
-	if urlRecord.Text == nil {
-		emptyString := ""
-		urlRecord.Text = &emptyString
-	}
-
-	scheme := setScheme(parsedURL.Scheme)
-	urlRecord.Scheme = &scheme
+	urlRecord.Scheme = setScheme(parsedURL.Scheme)
 
 	parsedURL.Host = strings.ToLower(strings.TrimSpace(parsedURL.Host))
-	urlRecord.Host = &parsedURL.Host
+	urlRecord.Host = parsedURL.Host
 	if parsedURL.Path == "" {
 		parsedURL.Path = "/"
 	}
-	urlRecord.Path = &parsedURL.Path
-	urlRecord.RawQuery = &parsedURL.RawQuery
+	urlRecord.Path = parsedURL.Path
+	urlRecord.RawQuery = parsedURL.RawQuery
 
 	// ignore query starting with
-	if ignoreQuery(*urlRecord.RawQuery) {
-		emptyString := ""
-		urlRecord.RawQuery = &emptyString
+	if ignoreQuery(urlRecord.RawQuery) {
+		urlRecord.RawQuery = ""
 	}
 
-	urlRecord.Fragment = &parsedURL.Fragment
+	urlRecord.Fragment = parsedURL.Fragment
 
 	// ignore records without known domain
 	domainCacheMutex.RLock()
-	domain, exists := domainCache[*urlRecord.Host]
+	domain, exists := domainCache[urlRecord.Host]
 	domainCacheMutex.RUnlock()
 	if !exists {
-		domain, err = publicsuffix.EffectiveTLDPlusOne(*urlRecord.Host)
+		domain, err = publicsuffix.EffectiveTLDPlusOne(urlRecord.Host)
 		if err != nil {
 			return false
 		}
 		domainCacheMutex.Lock()
-		domainCache[*urlRecord.Host] = domain
+		domainCache[urlRecord.Host] = domain
 		domainCacheMutex.Unlock()
 	}
-	urlRecord.Domain = &domain
+	urlRecord.Domain = domain
 
 	subDomain := genSubdomain(urlRecord)
-	urlRecord.SubDomain = &subDomain
+	urlRecord.SubDomain = subDomain
 
 	return true
 }
@@ -817,7 +810,7 @@ func checkPageCanonicalLink(parsedJSON *gjson.Result, watPage *WatPage) bool {
 				// ignore pages with canonical pointing to other host and then analyze only path
 				if strings.HasPrefix(link.URL, "http") || strings.HasPrefix(link.URL, "//") {
 					// ignore pages with canonical pointing to other host
-					if parsedURL.Host != *watPage.URLRecord.Host {
+					if parsedURL.Host != watPage.URLRecord.Host {
 						return false
 					}
 
@@ -831,13 +824,13 @@ func checkPageCanonicalLink(parsedJSON *gjson.Result, watPage *WatPage) bool {
 				}
 
 				// ignore pages with canonical pointing to other path
-				if link.URL != *watPage.URLRecord.Path {
+				if link.URL != watPage.URLRecord.Path {
 					// TODO: we could eventually change source page path to canonical path. Need to check this on more real data
 					return false
 				}
 
 				// ignore pages with canonical pointing to other query or no query
-				if watPage.URLRecord.RawQuery != nil && *watPage.URLRecord.RawQuery != "" {
+				if watPage.URLRecord.RawQuery != "" {
 					// TODO: we could eventually change source page query to empty query if we have such on canonical query. Need to check this on more real data
 					return false
 				}
@@ -984,10 +977,10 @@ func sortFileLink(linkMap map[string]FileLink) []SortFileLinkByFields {
 // genSubdomain - generate subdomain from host and domain
 func genSubdomain(urlRecord *URLRecord) string {
 	var subDomain string
-	if *urlRecord.Host == *urlRecord.Domain {
+	if urlRecord.Host == urlRecord.Domain {
 		subDomain = ""
 	} else {
-		subDomain = strings.TrimSuffix(*urlRecord.Host, "."+*urlRecord.Domain)
+		subDomain = strings.TrimSuffix(urlRecord.Host, "."+urlRecord.Domain)
 	}
 	return subDomain
 }
