@@ -408,9 +408,7 @@ func readPageContent(line string, sourceURLRecord *URLRecord) *WatPage {
 	}
 
 	ip := parsedJSON.Get("Envelope.WARC-Header-Metadata.WARC-IP-Address").String()
-	if ip != "" {
-		watPage.IP = &ip
-	}
+	watPage.IP = &ip
 
 	imported := parsedJSON.Get("Envelope.WARC-Header-Metadata.WARC-Date").String()
 	if imported != "" {
