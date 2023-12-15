@@ -19,12 +19,15 @@ import (
 
 	"github.com/kris-dev-hub/globallinks/pkg/commoncrawl"
 	"github.com/kris-dev-hub/globallinks/pkg/fileutils"
+
+	_ "net/http/pprof"
 )
 
 const (
 	savePageData     = false // collect and parse page data
 	lowDiscSpaceMode = true  // encrypt tmp files to save disc space during sorting, requires lzop installed
 	healthCheckMode  = true  // enable health check api to monitor application on port 3005: http://localhost:3005/health
+	pprofMode        = false // enable pprof api to monitor application on port 6060: http://localhost:6060/debug/pprof/
 )
 
 const (
@@ -54,6 +57,13 @@ type FileLinkCompacted struct {
 }
 
 func main() {
+
+	if pprofMode == true {
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	}
+
 	var err error
 	var archiveName string
 	var segmentsToImport []int
@@ -513,24 +523,32 @@ func compactSegmentData(segment commoncrawl.WatSegment, dataDir commoncrawl.Data
 				return fmt.Errorf("could not delete WAT processed files: %v", err)
 			}
 		}
-		err = fileutils.DeleteDirectoryIfEmpty(dataDir.TmpDir + "/" + segment.Segment)
-		if err != nil {
-			return fmt.Errorf("could not delete tmp directories: %v", err)
-		}
 
-		err = aggressiveCompacting(linkSegmentSorted, linkSegmentCompacted)
-		if err != nil {
-			return fmt.Errorf("could not compact file: %v", err)
-		}
-		err = os.Remove(linkSegmentSorted)
-		if err != nil {
-			return fmt.Errorf("could not delete file: %v", err)
-		}
+		if fileutils.FileExists(linkSegmentSorted) {
 
-		// save info that segment was finished
-		err = commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
-		if err != nil {
-			return fmt.Errorf("%v", err)
+			err = fileutils.DeleteDirectoryIfEmpty(dataDir.TmpDir + "/" + segment.Segment)
+			if err != nil {
+				return fmt.Errorf("could not delete tmp directories: %v", err)
+			}
+
+			err = aggressiveCompacting(linkSegmentSorted, linkSegmentCompacted)
+			if err != nil {
+				return fmt.Errorf("could not compact file: %v", err)
+			}
+			err = os.Remove(linkSegmentSorted)
+			if err != nil {
+				return fmt.Errorf("could not delete file: %v", err)
+			}
+
+			// save info that segment was finished
+			err = commoncrawl.UpdateSegmentImportEnd(segmentList, segment.Segment)
+			if err != nil {
+				return fmt.Errorf("%v", err)
+			}
+		} else {
+			if err != nil {
+				return fmt.Errorf("can't find sorted file!\n")
+			}
 		}
 	}
 

@@ -168,6 +168,7 @@ There are around 6 billion unique external backlinks per month in the common cra
 - 4GB of RAM is the minimum requirement. Requires 1.5GB of RAM per every next thread for parsing.
 - Minimum 50GB of free disk for every segment parsed at the same time.
 - MongoDB require minimum 2GB of disc space for every segment. 200MB of ram for every imported segment is optimal.
+- lzop installed on the system.
 
 ## Alpha Version Disclaimer
 This is an alpha version of GlobalLinks and is subject to changes. The software is provided "as is", without warranty of any kind.

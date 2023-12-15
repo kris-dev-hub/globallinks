@@ -122,6 +122,8 @@ type DataDir struct {
 // saves around 1s per 1M lines on one i5-9300H core
 var ipRegex = regexp.MustCompile(`^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$`)
 
+var isValidDomainRegex = regexp.MustCompile(`^(?i)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$`)
+
 // initialize a map for fast lookups - it will be used to ignore certain domains and extensions
 var (
 	ignoreDomains      = map[string]bool{}
@@ -591,28 +593,8 @@ func verifyRecordQuality(record *URLRecord) bool {
 
 // validateHose - validate host for strange characters and no dots
 func validateHost(host string) bool {
-	if strings.Contains(host, "%") ||
-		strings.Contains(host, "[") ||
-		strings.Contains(host, "]") ||
-		strings.Contains(host, "=") ||
-		strings.Contains(host, "'") ||
-		strings.Contains(host, ":") ||
-		strings.Contains(host, "*") ||
-		strings.Contains(host, "(") ||
-		strings.Contains(host, ")") ||
-		strings.Contains(host, "<") ||
-		strings.Contains(host, ">") ||
-		strings.Contains(host, "&") ||
-		strings.Contains(host, "!") ||
-		strings.Contains(host, "+") ||
-		strings.Contains(host, "`") ||
-		strings.Contains(host, ",") ||
-		strings.Contains(host, "}") ||
-		strings.Contains(host, "{") ||
-		strings.Contains(host, "$") ||
-		strings.Contains(host, "\"") ||
-		strings.Contains(host, ":") ||
-		strings.Contains(host, ";") {
+
+	if strings.ContainsAny(host, "%[]=':*()<>!&+,}{}$\";`") {
 		return false
 	}
 
@@ -628,12 +610,14 @@ func validateHost(host string) bool {
 	return true
 }
 
-// final verification of domain
+// IsValidDomain - final verification of domain
 func IsValidDomain(domain string) bool {
 	// Regular expression to match valid domain characters and rules
 	// This regex does not cover all possible TLDs and might need modification for specific cases
-	re := regexp.MustCompile(`^(?i)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$`)
-	return re.MatchString(domain)
+	//	re := regexp.MustCompile(`^(?i)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$`)
+
+	// moving regex to global variable to make it faster - saved around 10% of time
+	return isValidDomainRegex.MatchString(domain)
 }
 
 // buildURLRecord - build url record from source url, check domain, path, query, etc.
@@ -651,13 +635,8 @@ func buildURLRecord(sourceURL string, urlRecord *URLRecord) bool {
 		return false
 	}
 
-	// ignore path with \n
-	if strings.Contains(parsedURL.Path, "\n") {
-		return false
-	}
-
-	// ignore path with | char
-	if strings.Contains(parsedURL.Path, "|") {
+	// ignore path with \n and | char
+	if strings.ContainsAny(parsedURL.Path, "\n|") {
 		return false
 	}
 
