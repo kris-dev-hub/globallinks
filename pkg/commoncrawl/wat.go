@@ -593,7 +593,6 @@ func verifyRecordQuality(record *URLRecord) bool {
 
 // validateHose - validate host for strange characters and no dots
 func validateHost(host string) bool {
-
 	if strings.ContainsAny(host, "%[]=':*()<>!&+,}{}$\";`") {
 		return false
 	}

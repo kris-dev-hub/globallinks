@@ -57,7 +57,6 @@ type FileLinkCompacted struct {
 }
 
 func main() {
-
 	if pprofMode == true {
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
