@@ -3,9 +3,11 @@ package linkdb
 import (
 	"context"
 	"log"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/net/publicsuffix"
 )
 
 func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, error) {
@@ -15,7 +17,7 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 	var page int64 = 1
 
 	domain := *apiRequest.Domain
-	if apiRequest.Limit != nil && *apiRequest.Limit > 0 && *apiRequest.Limit <= 1000 {
+	if apiRequest.Limit != nil && *apiRequest.Limit > 0 && *apiRequest.Limit <= 100 {
 		limit = *apiRequest.Limit
 	}
 	if apiRequest.Page != nil && *apiRequest.Page > 0 {
@@ -25,8 +27,18 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 	// Get the collection
 	collection := app.DB.Database(app.Dbname).Collection("links")
 
+	domainParsed, err := publicsuffix.EffectiveTLDPlusOne(domain)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create a filter for the query
 	filter := bson.M{"linkdomain": domain}
+	if domainParsed != domain {
+		subdomain := domain[:len(domain)-len(domainParsed)-1]
+		filter = bson.M{"linkdomain": domainParsed, "linksubdomain": subdomain}
+	}
+
 	sort := bson.D{
 		{Key: "linkdomain", Value: 1},
 		{Key: "linkpath", Value: 1},
@@ -38,7 +50,8 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 		{Key: "dateto", Value: 1},
 	}
 
-	findOptions := options.Find().SetSort(sort).SetLimit(limit).SetSkip((page - 1) * limit)
+	// take more pages since we can have duplicates
+	findOptions := options.Find().SetSort(sort).SetLimit(limit * 3).SetSkip((page - 1) * limit)
 
 	cursor, err := collection.Find(context.TODO(), filter, findOptions)
 	if err != nil {
@@ -59,16 +72,22 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 		return nil, err
 	}
 
-	outLinks = cleanDomainLinks(&links)
+	outLinks = cleanDomainLinks(&links, limit)
 
 	return outLinks, nil
 }
 
-func cleanDomainLinks(links *[]LinkRow) []LinkOut {
+func cleanDomainLinks(links *[]LinkRow, limit int64) []LinkOut {
 	lastLink := LinkOut{}
 	curLink := LinkOut{}
 	outLinks := make([]LinkOut, 0, len(*links))
+	i := 0
 	for _, link := range *links {
+
+		if i >= int(limit) {
+			break
+		}
+
 		curLink = LinkOut{
 			LinkUrl:  showLinkScheme(link.LinkScheme) + "://" + showSubDomain(link.LinkSubDomain) + link.LinkDomain + showLinkPath(link.LinkPath) + showSubQuery(link.LinkRawQuery),
 			PageUrl:  showLinkScheme(link.PageScheme) + "://" + link.PageHost + showLinkPath(link.PagePath) + showSubQuery(link.PageRawQuery),
@@ -84,6 +103,7 @@ func cleanDomainLinks(links *[]LinkRow) []LinkOut {
 		if lastLink.LinkUrl != curLink.LinkUrl || lastLink.PageUrl != curLink.PageUrl || lastLink.LinkText != curLink.LinkText || lastLink.NoFollow != curLink.NoFollow {
 			if lastLink.LinkUrl != "" {
 				outLinks = append(outLinks, lastLink)
+				i++
 			}
 			lastLink = curLink
 			continue
@@ -146,5 +166,32 @@ func addIPsToLink(lastLink *LinkOut, curLink *LinkOut) {
 	// If it's not already in the slice, append it
 	if !alreadyExists {
 		lastLink.IP = append(lastLink.IP, curLink.IP[0])
+	}
+}
+
+func (app *App) isRateLimited(identifier string) bool {
+	const limit = 50
+	const windowDuration = 15 * time.Minute
+
+	now := time.Now()
+
+	// Check if the user has made a request before
+	if info, exists := app.requestRecords[identifier]; exists {
+		// Check if the window duration has passed
+		if now.Sub(info.FirstRequestTime) > windowDuration {
+			// Reset the counter
+			info.FirstRequestTime = now
+			info.RequestCount = 1
+			return false
+		} else {
+			// Increment the counter
+			info.RequestCount++
+			// Check if the request limit is exceeded
+			return info.RequestCount > limit
+		}
+	} else {
+		// First request from this user
+		app.requestRecords[identifier] = &RequestInfo{FirstRequestTime: now, RequestCount: 1}
+		return false
 	}
 }

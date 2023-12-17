@@ -1,5 +1,7 @@
 package linkdb
 
+import "time"
+
 // LinkRow - link row
 type LinkRow struct {
 	LinkDomain    string `json:"link_domain"`
@@ -43,4 +45,10 @@ type ApiError struct {
 	ErrorCode string `json:"errorCode"`
 	Function  string `json:"function"`
 	Error     string `json:"error"`
+}
+
+// RequestInfo - request info used to count requests in a period of time
+type RequestInfo struct {
+	FirstRequestTime time.Time
+	RequestCount     int
 }

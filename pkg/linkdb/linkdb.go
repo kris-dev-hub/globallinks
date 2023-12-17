@@ -11,8 +11,9 @@ import (
 )
 
 type App struct {
-	DB     *mongo.Client
-	Dbname string
+	DB             *mongo.Client
+	Dbname         string
+	requestRecords map[string]*RequestInfo
 }
 
 func InitServer(host string, port string, dbname string) {
@@ -20,7 +21,10 @@ func InitServer(host string, port string, dbname string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	app := &App{DB: db, Dbname: dbname}
+
+	requestRecords := make(map[string]*RequestInfo)
+
+	app := &App{DB: db, Dbname: dbname, requestRecords: requestRecords}
 
 	router := InitRoutes(app)
 

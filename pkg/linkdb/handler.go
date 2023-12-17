@@ -20,6 +20,11 @@ func SendResponse(w http.ResponseWriter, status int, data []byte) {
 
 // HandlerGetDomainLinks - get domain links
 func (app *App) HandlerGetDomainLinks(w http.ResponseWriter, r *http.Request) {
+	if app.isRateLimited(r.RemoteAddr) {
+		SendResponse(w, http.StatusTooManyRequests, GenerateError("ErrorTooManyRequests", "HandlerGetDomainLinks", "Too Many Requests"))
+		return
+	}
+
 	var apiRequest APIRequest
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
