@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -31,18 +33,33 @@ func InitServer(host string, port string, dbname string) {
 	handlerWithCORS := enableCORS(router)
 
 	// start http server
-	if err := http.ListenAndServe(":8010", handlerWithCORS); err != nil {
-		fmt.Println("Failed to set up server")
-		panic(err)
+	if os.Getenv("GO_ENV") == "production" {
+		if err := http.ListenAndServeTLS(":8443", "cert/fullchain.pem", "cert/privkey.pem", handlerWithCORS); err != nil {
+			fmt.Println("Failed to set up server")
+			panic(err)
+		}
+	} else {
+		if err := http.ListenAndServe(":8010", handlerWithCORS); err != nil {
+			fmt.Println("Failed to set up server")
+			panic(err)
+		}
 	}
 }
 
 func InitDB(connectionString string) (*mongo.Client, error) {
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(connectionString))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(connectionString))
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Additional setup like pinging the database to check the connection can be done here
+
+	// Pinging the database to check the connection can be done here
+	if err := client.Ping(ctx, nil); err != nil {
+		panic(err)
+	}
+
 	return client, nil
 }
 
