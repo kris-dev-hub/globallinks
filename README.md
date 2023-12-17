@@ -7,6 +7,10 @@ GlobalLinks is a backlink gathering tool based on the Common Crawl dataset. It's
 - Multithreaded processing of links.
 - Parses up to 300,000 pages per minute per thread.
 
+## Demo
+
+- [Backlink search demo](https://krisdevhub.com/dev/backlink-search/)
+
 ## Configuration
 
 Control the number of threads with the `GLOBALLINKS_MAXTHREADS` environment variable:
