@@ -54,6 +54,7 @@ func (app *App) HandlerGetDomainLinks(w http.ResponseWriter, r *http.Request) {
 
 	if !commoncrawl.IsValidDomain(*apiRequest.Domain) {
 		SendResponse(w, http.StatusBadRequest, GenerateError("ErrorInvalidDomain", "HandlerGetDomainLinks", "Invalid domain"))
+		return
 	}
 
 	links, err := app.ControllerGetDomainLinks(apiRequest)
