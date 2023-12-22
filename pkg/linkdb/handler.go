@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/kris-dev-hub/globallinks/pkg/commoncrawl"
 )
@@ -40,9 +42,18 @@ func (app *App) HandlerGetDomainLinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// accepts http://domain.com and domain.com
+	if strings.HasPrefix(*apiRequest.Domain, "http") {
+		parsedUrl, err := url.Parse(*apiRequest.Domain)
+		if err != nil {
+			SendResponse(w, http.StatusBadRequest, GenerateError("ErrorParsing", "HandlerGetDomainLinks", "Error parsing domain"))
+			return
+		}
+		*apiRequest.Domain = parsedUrl.Host
+	}
+
 	if !commoncrawl.IsValidDomain(*apiRequest.Domain) {
 		SendResponse(w, http.StatusBadRequest, GenerateError("ErrorInvalidDomain", "HandlerGetDomainLinks", "Invalid domain"))
-		return
 	}
 
 	links, err := app.ControllerGetDomainLinks(apiRequest)
