@@ -2,9 +2,10 @@ package linkdb
 
 import (
 	"context"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -75,7 +76,6 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 
 // generateFilter creates a MongoDB filter based on the given parameters
 func generateFilter(domain string, domainParsed string, apiRequest *APIRequest) bson.M {
-
 	// Create a filter for the query
 	filter := bson.M{"linkdomain": domain}
 	if domainParsed != domain {
