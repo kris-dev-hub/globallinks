@@ -2,6 +2,7 @@ package linkdb
 
 import (
 	"context"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"time"
 
@@ -32,12 +33,7 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 		return nil, err
 	}
 
-	// Create a filter for the query
-	filter := bson.M{"linkdomain": domain}
-	if domainParsed != domain {
-		subdomain := domain[:len(domain)-len(domainParsed)-1]
-		filter = bson.M{"linkdomain": domainParsed, "linksubdomain": subdomain}
-	}
+	filter := generateFilter(domain, domainParsed, &apiRequest)
 
 	sort := bson.D{
 		{Key: "linkdomain", Value: 1},
@@ -75,6 +71,33 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 	outLinks = cleanDomainLinks(&links, limit)
 
 	return outLinks, nil
+}
+
+// generateFilter creates a MongoDB filter based on the given parameters
+func generateFilter(domain string, domainParsed string, apiRequest *APIRequest) bson.M {
+
+	// Create a filter for the query
+	filter := bson.M{"linkdomain": domain}
+	if domainParsed != domain {
+		subdomain := domain[:len(domain)-len(domainParsed)-1]
+		filter = bson.M{"linkdomain": domainParsed, "linksubdomain": subdomain}
+	}
+
+	// Create filter by no follow
+	if apiRequest.NoFollow != nil {
+		filter["nofollow"] = *apiRequest.NoFollow
+	}
+
+	// Create filter by text exact
+	if apiRequest.TextExact != nil {
+		filter["linktext"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + *apiRequest.TextExact + "$", Options: "i"}}
+	}
+	// Create filter by text any
+	if apiRequest.TextAny != nil {
+		filter["linktext"] = bson.M{"$regex": primitive.Regex{Pattern: *apiRequest.TextAny, Options: "i"}}
+	}
+
+	return filter
 }
 
 func cleanDomainLinks(links *[]LinkRow, limit int64) []LinkOut {

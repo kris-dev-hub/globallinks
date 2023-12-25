@@ -36,9 +36,12 @@ type LinkOut struct {
 }
 
 type APIRequest struct {
-	Domain *string `json:"domain,omitempty"`
-	Limit  *int64  `json:"limit,omitempty"`
-	Page   *int64  `json:"page,omitempty"`
+	Domain    *string `json:"domain,omitempty"`
+	Limit     *int64  `json:"limit,omitempty"`
+	Page      *int64  `json:"page,omitempty"`
+	NoFollow  *int    `json:"no_follow,omitempty"`
+	TextExact *string `json:"text_exact,omitempty"`
+	TextAny   *string `json:"text_any,omitempty"`
 }
 
 type ApiError struct {
