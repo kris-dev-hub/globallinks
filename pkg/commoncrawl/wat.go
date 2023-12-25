@@ -268,7 +268,7 @@ func ParseWatByLine(filePath string, linkFile string, pageFile string, savePage 
 	pageMap := make(map[string]FilePage)
 	linkMap := make(map[string]FileLink)
 
-	const maxCapacityScanner = 3 * 1024 * 1024 // 3*1MB
+	const maxCapacityScanner = 5 * 1024 * 1024 // 5*1MB
 
 	// Open the .gz file
 	file, err := os.Open(filePath)
