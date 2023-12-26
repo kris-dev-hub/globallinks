@@ -2,6 +2,7 @@ package linkdb
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strconv"
 	"time"
@@ -91,16 +92,24 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 	}
 
 	// take more pages since we can have duplicates
-	findOptions := options.Find().SetSort(sort).SetLimit(limit * 3).SetSkip((page - 1) * limit)
+	findOptions := options.Find().SetSort(sort).SetLimit(limit * 3).SetSkip((page - 1) * limit).SetMaxTime(61 * time.Second)
 
-	cursor, err := collection.Find(context.TODO(), filter, findOptions)
+	queryTimeout := 60 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	cursor, err := collection.Find(ctx, filter, findOptions)
 	if err != nil {
-		log.Fatal(err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, errors.New("Query timeout")
+		} else {
+			log.Fatal(err)
+		}
 	}
-	defer cursor.Close(context.TODO())
+	defer cursor.Close(ctx)
 
 	// Iterate through the cursor
-	for cursor.Next(context.TODO()) {
+	for cursor.Next(ctx) {
 		var link LinkRow
 		if err := cursor.Decode(&link); err != nil {
 			return nil, err
@@ -113,6 +122,8 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 	}
 
 	outLinks = cleanDomainLinks(&links, limit)
+
+	defer cursor.Close(ctx)
 
 	return outLinks, nil
 }
