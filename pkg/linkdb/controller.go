@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/net/publicsuffix"
@@ -121,11 +123,40 @@ func generateFilter(domain string, domainParsed string, apiRequest *APIRequest) 
 	if apiRequest.Filters != nil {
 		for _, filterData := range *apiRequest.Filters {
 			switch filterData.Name {
-			case "NoFollow":
+			case "No Follow":
 				val, err := strconv.Atoi(filterData.Val)
 				if err == nil {
 					filter["nofollow"] = val
 				}
+			case "Link Path":
+				if filterData.Kind == "exact" {
+					filter["linkpath"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + filterData.Val + "$", Options: "i"}}
+				}
+				if filterData.Kind == "any" {
+					filter["linkpath"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
+				}
+			case "Source Host":
+				if filterData.Kind == "exact" {
+					filter["pagehost"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + filterData.Val + "$", Options: "i"}}
+				}
+				if filterData.Kind == "any" {
+					filter["pagehost"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
+				}
+			case "Source Path":
+				if filterData.Kind == "exact" {
+					filter["pagepath"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + filterData.Val + "$", Options: "i"}}
+				}
+				if filterData.Kind == "any" {
+					filter["pagepath"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
+				}
+			case "Anchor":
+				if filterData.Kind == "exact" {
+					filter["linktext"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + filterData.Val + "$", Options: "i"}}
+				}
+				if filterData.Kind == "any" {
+					filter["linktext"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
+				}
+
 			}
 		}
 	}
