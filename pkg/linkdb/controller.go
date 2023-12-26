@@ -13,6 +13,11 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
+const (
+	FilterKindExact = "exact"
+	FilterKindAny   = "any"
+)
+
 func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, error) {
 	var links []LinkRow
 	var outLinks []LinkOut
@@ -129,31 +134,31 @@ func generateFilter(domain string, domainParsed string, apiRequest *APIRequest) 
 					filter["nofollow"] = val
 				}
 			case "Link Path":
-				if filterData.Kind == "exact" {
+				if filterData.Kind == FilterKindExact {
 					filter["linkpath"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + filterData.Val + "$", Options: "i"}}
 				}
-				if filterData.Kind == "any" {
+				if filterData.Kind == FilterKindAny {
 					filter["linkpath"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
 				}
 			case "Source Host":
-				if filterData.Kind == "exact" {
+				if filterData.Kind == FilterKindExact {
 					filter["pagehost"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + filterData.Val + "$", Options: "i"}}
 				}
-				if filterData.Kind == "any" {
+				if filterData.Kind == FilterKindAny {
 					filter["pagehost"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
 				}
 			case "Source Path":
-				if filterData.Kind == "exact" {
+				if filterData.Kind == FilterKindExact {
 					filter["pagepath"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + filterData.Val + "$", Options: "i"}}
 				}
-				if filterData.Kind == "any" {
+				if filterData.Kind == FilterKindAny {
 					filter["pagepath"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
 				}
 			case "Anchor":
-				if filterData.Kind == "exact" {
+				if filterData.Kind == FilterKindExact {
 					filter["linktext"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + filterData.Val + "$", Options: "i"}}
 				}
-				if filterData.Kind == "any" {
+				if filterData.Kind == FilterKindAny {
 					filter["linktext"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
 				}
 
@@ -161,21 +166,6 @@ func generateFilter(domain string, domainParsed string, apiRequest *APIRequest) 
 		}
 	}
 
-	/*
-		// Create filter by no follow
-		if apiRequest.NoFollow != nil {
-			filter["nofollow"] = *apiRequest.NoFollow
-		}
-
-		// Create filter by text exact
-		if apiRequest.TextExact != nil {
-			filter["linktext"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + *apiRequest.TextExact + "$", Options: "i"}}
-		}
-		// Create filter by text any
-		if apiRequest.TextAny != nil {
-			filter["linktext"] = bson.M{"$regex": primitive.Regex{Pattern: *apiRequest.TextAny, Options: "i"}}
-		}
-	*/
 	return filter
 }
 
