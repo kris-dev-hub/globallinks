@@ -1,6 +1,8 @@
 package linkdb
 
-import "time"
+import (
+	"time"
+)
 
 // LinkRow - link row
 type LinkRow struct {
@@ -35,15 +37,24 @@ type LinkOut struct {
 	Qty      int      `json:"qty"`
 }
 
+type ApiRequestFilter struct {
+	Name string `json:"name"`
+	Val  string `json:"val"`
+	Kind string `json:"kind"`
+}
+
 type APIRequest struct {
-	Domain    *string `json:"domain,omitempty"`
-	Limit     *int64  `json:"limit,omitempty"`
-	Sort      *string `json:"sort,omitempty"`
-	Order     *string `json:"order,omitempty"`
-	Page      *int64  `json:"page,omitempty"`
-	NoFollow  *int    `json:"no_follow,omitempty"`
-	TextExact *string `json:"text_exact,omitempty"`
-	TextAny   *string `json:"text_any,omitempty"`
+	Domain  *string             `json:"domain,omitempty"`
+	Limit   *int64              `json:"limit,omitempty"`
+	Sort    *string             `json:"sort,omitempty"`
+	Order   *string             `json:"order,omitempty"`
+	Page    *int64              `json:"page,omitempty"`
+	Filters *[]ApiRequestFilter `json:"filters,omitempty"`
+	/*
+		NoFollow  *int    `json:"no_follow,omitempty"`
+		TextExact *string `json:"text_exact,omitempty"`
+		TextAny   *string `json:"text_any,omitempty"`
+	*/
 }
 
 type ApiError struct {
