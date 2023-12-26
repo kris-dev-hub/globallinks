@@ -38,6 +38,8 @@ type LinkOut struct {
 type APIRequest struct {
 	Domain    *string `json:"domain,omitempty"`
 	Limit     *int64  `json:"limit,omitempty"`
+	Sort      *string `json:"sort,omitempty"`
+	Order     *string `json:"order,omitempty"`
 	Page      *int64  `json:"page,omitempty"`
 	NoFollow  *int    `json:"no_follow,omitempty"`
 	TextExact *string `json:"text_exact,omitempty"`

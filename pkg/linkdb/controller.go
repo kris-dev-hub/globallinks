@@ -47,6 +47,43 @@ func (app *App) ControllerGetDomainLinks(apiRequest APIRequest) ([]LinkOut, erro
 		{Key: "dateto", Value: 1},
 	}
 
+	sortValue := 1
+	if apiRequest.Order != nil {
+		switch *apiRequest.Order {
+		case "desc":
+			sortValue = -1
+		}
+	}
+
+	if apiRequest.Sort != nil {
+		switch *apiRequest.Sort {
+		case "linkUrl":
+			sort = bson.D{
+				{Key: "linkdomain", Value: sortValue},
+				{Key: "linkpath", Value: sortValue},
+				{Key: "linkrawquery", Value: sortValue},
+			}
+		case "pageUrl":
+			sort = bson.D{
+				{Key: "pagehost", Value: sortValue},
+				{Key: "pagepath", Value: sortValue},
+				{Key: "pagerawquery", Value: sortValue},
+			}
+		case "linkText":
+			sort = bson.D{
+				{Key: "linktext", Value: sortValue},
+			}
+		case "dateFrom":
+			sort = bson.D{
+				{Key: "datefrom", Value: sortValue},
+			}
+		case "dateTo":
+			sort = bson.D{
+				{Key: "dateto", Value: sortValue},
+			}
+		}
+	}
+
 	// take more pages since we can have duplicates
 	findOptions := options.Find().SetSort(sort).SetLimit(limit * 3).SetSkip((page - 1) * limit)
 
