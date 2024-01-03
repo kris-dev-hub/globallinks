@@ -246,6 +246,13 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 		if err != nil {
 			panic(fmt.Sprintf("Failed to create file: %v", err))
 		}
+
+		wg.Add(1)
+		// Before starting the goroutine, we insert an empty struct into the guard channel.
+		// If the channel is already full (meaning we have 'maxGoroutines' goroutines running),
+		// this will block until one of the running goroutines finishes and reads from the channel.
+		guard <- struct{}{}
+
 		if !fileutils.FileExists(recordWatFile) {
 			err := fileutils.DownloadFile("https://data.commoncrawl.org/"+watFile.Path, recordWatFile, 2)
 			if err != nil {
@@ -255,11 +262,6 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 
 		fmt.Println("Importing file: ", recordWatFile)
 
-		wg.Add(1)
-		// Before starting the goroutine, we insert an empty struct into the guard channel.
-		// If the channel is already full (meaning we have 'maxGoroutines' goroutines running),
-		// this will block until one of the running goroutines finishes and reads from the channel.
-		guard <- struct{}{}
 		go func(recordFile string, linkFile string, pageFile string) {
 			defer wg.Done()            // Signal the WaitGroup that the goroutine is done after it finishes
 			defer func() { <-guard }() // Release the guard when the goroutine is done
