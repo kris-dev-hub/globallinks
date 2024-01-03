@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/kris-dev-hub/globallinks/pkg/healthcheck"
 
@@ -28,6 +29,7 @@ const (
 	lowDiscSpaceMode = true  // encrypt tmp files to save disc space during sorting, requires lzop installed
 	healthCheckMode  = true  // enable health check api to monitor application on port 3005: http://localhost:3005/health
 	pprofMode        = false // enable pprof api to monitor application on port 6060: http://localhost:6060/debug/pprof/
+	sleepBetweenWat  = 10    // sleep between WAT files in seconds - there is a problem with common crawl transfer limitation and from certain speed they slow the transfer down
 )
 
 const (
@@ -201,6 +203,11 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 	}
 
 	for _, watFile := range segment.WatFiles {
+
+		// sleep between WAT files to avoid common crawl transfer limitation
+		if sleepBetweenWat > 0 {
+			time.Sleep(time.Duration(sleepBetweenWat) * time.Second)
+		}
 
 		// ignore imported files
 		if watFile.Imported != nil {
