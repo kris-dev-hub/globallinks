@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/kris-dev-hub/globallinks/pkg/healthcheck"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kris-dev-hub/globallinks/pkg/healthcheck"
 
 	"github.com/klauspost/compress/gzip"
 
