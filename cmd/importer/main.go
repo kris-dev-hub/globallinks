@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/kris-dev-hub/globallinks/pkg/healthcheck"
 	"log"
 	"net/http"
 	"os"
@@ -13,8 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/kris-dev-hub/globallinks/pkg/healthcheck"
 
 	"github.com/klauspost/compress/gzip"
 
@@ -204,11 +203,6 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 
 	for _, watFile := range segment.WatFiles {
 
-		// sleep between WAT files to avoid common crawl transfer limitation
-		if sleepBetweenWat > 0 {
-			time.Sleep(time.Duration(sleepBetweenWat) * time.Second)
-		}
-
 		// ignore imported files
 		if watFile.Imported != nil {
 			continue
@@ -252,6 +246,11 @@ func importSegment(segment commoncrawl.WatSegment, dataDir commoncrawl.DataDir, 
 		err = fileutils.CreateDataDirectory(filepath.Dir(recordWatFile))
 		if err != nil {
 			panic(fmt.Sprintf("Failed to create file: %v", err))
+		}
+
+		// sleep between WAT files to avoid common crawl transfer limitation
+		if sleepBetweenWat > 0 {
+			time.Sleep(time.Duration(sleepBetweenWat) * time.Second)
 		}
 
 		wg.Add(1)
