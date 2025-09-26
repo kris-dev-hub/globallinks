@@ -144,8 +144,51 @@ storage:
       blockCompressor: zlib
 ```
 
-This enables compression for the database and separate directory for indexes. Every segment require approximately 1.6 GB space for the collection and 300 MB for the indexes. 
+This enables compression for the database and separate directory for indexes. Every segment require approximately 1.6 GB space for the collection and 300 MB for the indexes.
 
+## LinkDB API
+
+The LinkDB API provides access to the collected backlink data via HTTP endpoints.
+
+### Starting the API Server
+
+#### Without Authentication (Local Development)
+```sh
+go run cmd/linksapi/main.go localhost 27017 linkdb
+```
+
+#### With MongoDB Authentication
+```sh
+export MONGO_USERNAME=your_username
+export MONGO_PASSWORD=your_password
+export MONGO_AUTH_DB=admin
+go run cmd/linksapi/main.go mongodb_host 27017 database_name
+```
+
+#### Environment Variables
+- `MONGO_USERNAME`: MongoDB username (optional)
+- `MONGO_PASSWORD`: MongoDB password (optional)
+- `MONGO_AUTH_DB`: Authentication database (optional, defaults to "admin")
+- `GO_ENV`: Set to "production" for HTTPS on port 8443, otherwise HTTP on port 8010
+
+### API Endpoints
+
+- **Health Check:** `GET /api/health`
+- **Get Domain Links:** `POST /api/links`
+
+### Usage Examples
+
+```sh
+# Health check
+curl -X GET http://localhost:8010/api/health
+
+# Get backlinks for a domain
+curl -X POST http://localhost:8010/api/links \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "example.com", "limit": 10}'
+```
+
+For complete API documentation, see [LINKDB.md](LINKDB.md).
 
 ### Example
 ```sh
