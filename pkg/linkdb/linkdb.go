@@ -19,7 +19,21 @@ type App struct {
 }
 
 func InitServer(host string, port string, dbname string) {
-	db, err := InitDB("mongodb://" + host + ":" + port)
+	username := os.Getenv("MONGO_USERNAME")
+	password := os.Getenv("MONGO_PASSWORD")
+
+	var connectionString string
+	if username != "" && password != "" {
+		authDB := os.Getenv("MONGO_AUTH_DB")
+		if authDB == "" {
+			authDB = "admin" // default auth database
+		}
+		connectionString = fmt.Sprintf("mongodb://%s:%s@%s:%s/%s?authSource=%s", username, password, host, port, dbname, authDB)
+	} else {
+		connectionString = "mongodb://" + host + ":" + port
+	}
+
+	db, err := InitDB(connectionString)
 	if err != nil {
 		log.Fatal(err)
 	}
