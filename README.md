@@ -186,7 +186,29 @@ curl -X GET http://localhost:8010/api/health
 curl -X POST http://localhost:8010/api/links \
   -H "Content-Type: application/json" \
   -d '{"domain": "example.com", "limit": 10}'
+
+# Get backlinks with IP filter
+curl -X POST http://localhost:8010/api/links \
+  -H "Content-Type: application/json" \
+  -d '{
+    "domain": "example.com",
+    "filters": [
+      {
+        "name": "IP",
+        "val": "192.168.1.1",
+        "kind": "exact"
+      }
+    ]
+  }'
 ```
+
+### Available Filters
+- **No Follow**: Filter by nofollow attribute
+- **Link Path**: Filter by target link path
+- **Source Host**: Filter by source page hostname
+- **Source Path**: Filter by source page path
+- **Anchor**: Filter by anchor text
+- **IP**: Filter by IP address
 
 For complete API documentation, see [LINKDB.md](LINKDB.md).
 
