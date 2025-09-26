@@ -172,6 +172,13 @@ func generateFilter(domain string, domainParsed string, apiRequest *APIRequest) 
 				if filterData.Kind == FilterKindAny {
 					filter["linktext"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
 				}
+			case "IP":
+				if filterData.Kind == FilterKindExact {
+					filter["ip"] = bson.M{"$regex": primitive.Regex{Pattern: "^" + filterData.Val + "$", Options: "i"}}
+				}
+				if filterData.Kind == FilterKindAny {
+					filter["ip"] = bson.M{"$regex": primitive.Regex{Pattern: filterData.Val, Options: "i"}}
+				}
 
 			}
 		}
