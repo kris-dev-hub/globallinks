@@ -212,6 +212,214 @@ curl -X POST http://localhost:8010/api/links \
 
 For complete API documentation, see [LINKDB.md](LINKDB.md).
 
+## 🐳 Docker Deployment
+
+The LinkDB API is available as a Docker container with automatic builds on version tags.
+
+### 🔐 Authentication Required
+
+Since this is a **private repository**, authenticate with GitHub Container Registry:
+
+```bash
+# Login to GitHub Container Registry
+docker login ghcr.io
+# Username: your-github-username
+# Password: your-github-personal-access-token (with read:packages scope)
+```
+
+### 📦 Available Images
+
+```bash
+# Latest stable release
+ghcr.io/kris-dev-hub/globallinks-linksapi:latest
+
+# Specific versions
+ghcr.io/kris-dev-hub/globallinks-linksapi:v1.0.0
+```
+
+### 🚀 Quick Deploy
+
+**Standalone API (No Authentication):**
+```bash
+docker pull ghcr.io/kris-dev-hub/globallinks-linksapi:latest
+
+docker run -d \
+  --name linksapi \
+  -p 8010:8010 \
+  -e MONGO_HOST=your_mongo_host \
+  -e MONGO_PORT=27017 \
+  -e MONGO_DATABASE=linkdb \
+  ghcr.io/kris-dev-hub/globallinks-linksapi:latest
+```
+
+**With MongoDB Authentication:**
+```bash
+docker run -d \
+  --name linksapi \
+  -p 8010:8010 \
+  -e MONGO_HOST=your_mongo_host \
+  -e MONGO_PORT=27017 \
+  -e MONGO_DATABASE=linkdb \
+  -e MONGO_USERNAME=your_username \
+  -e MONGO_PASSWORD=your_password \
+  -e MONGO_AUTH_DB=admin \
+  ghcr.io/kris-dev-hub/globallinks-linksapi:latest
+```
+
+**Production Mode (HTTPS):**
+```bash
+docker run -d \
+  --name linksapi \
+  -p 8443:8443 \
+  -v /path/to/certs:/app/cert \
+  -e GO_ENV=production \
+  -e MONGO_HOST=your_mongo_host \
+  -e MONGO_USERNAME=your_username \
+  -e MONGO_PASSWORD=your_password \
+  -e MONGO_DATABASE=linkdb \
+  ghcr.io/kris-dev-hub/globallinks-linksapi:latest
+```
+
+### 🔧 Environment Variables
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `MONGO_HOST` | MongoDB hostname | localhost | No |
+| `MONGO_PORT` | MongoDB port | 27017 | No |
+| `MONGO_DATABASE` | Database name | linkdb | No |
+| `MONGO_USERNAME` | MongoDB username | - | No |
+| `MONGO_PASSWORD` | MongoDB password | - | No |
+| `MONGO_AUTH_DB` | Authentication database | admin | No |
+| `GO_ENV` | Environment (development/production) | development | No |
+
+### 📋 Connecting to External MongoDB
+
+The LinkDB API container is designed to connect to external MongoDB instances:
+
+**Connect to existing MongoDB:**
+```bash
+# Connect to MongoDB running on host
+docker run -d \
+  --name linksapi \
+  -p 8010:8010 \
+  -e MONGO_HOST=192.168.1.105 \
+  -e MONGO_USERNAME=linksuser \
+  -e MONGO_PASSWORD=Nft9Vyr94vKMVnif \
+  -e MONGO_DATABASE=linksdb \
+  -e MONGO_AUTH_DB=admin \
+  ghcr.io/kris-dev-hub/globallinks-linksapi:latest
+```
+
+**Connect to cloud MongoDB:**
+```bash
+# Connect to MongoDB Atlas or other cloud providers
+docker run -d \
+  --name linksapi \
+  -p 8010:8010 \
+  -e MONGO_HOST=cluster0.mongodb.net \
+  -e MONGO_PORT=27017 \
+  -e MONGO_USERNAME=dbuser \
+  -e MONGO_PASSWORD=dbpass \
+  -e MONGO_DATABASE=linkdb \
+  -e MONGO_AUTH_DB=admin \
+  ghcr.io/kris-dev-hub/globallinks-linksapi:latest
+```
+
+### 📱 Container Features
+
+- **Minimal size**: ~15-25MB Alpine-based image
+- **Memory efficient**: ~10-30MB RAM usage
+- **Security**: Non-root user execution
+- **Health checks**: Built-in health endpoint monitoring
+- **Multi-environment**: Supports both development and production modes
+
+### 🏗️ Build Locally
+
+```bash
+# Build the Docker image locally
+docker build -t linksapi .
+
+# Run locally built image
+docker run -d -p 8010:8010 \
+  -e MONGO_HOST=localhost \
+  -e MONGO_DATABASE=linkdb \
+  linksapi
+```
+
+### 📋 Versioning and Releases
+
+The project uses semantic versioning with automatic Docker image builds:
+
+**Creating a Release:**
+```bash
+# Tag a new version (triggers automated build)
+git tag v1.0.0
+git push origin v1.0.0
+
+# Images are automatically built and pushed to:
+# ghcr.io/kris-dev-hub/globallinks-linksapi:v1.0.0
+# ghcr.io/kris-dev-hub/globallinks-linksapi:latest
+```
+
+### ☸️ Kubernetes Deployment
+
+**Example Kubernetes Deployment:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linksapi
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: linksapi
+  template:
+    metadata:
+      labels:
+        app: linksapi
+    spec:
+      containers:
+      - name: linksapi
+        image: ghcr.io/kris-dev-hub/globallinks-linksapi:latest
+        ports:
+        - containerPort: 8010
+        env:
+        - name: MONGO_HOST
+          value: "mongodb-service"
+        - name: MONGO_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: username
+        - name: MONGO_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: password
+        - name: MONGO_DATABASE
+          value: "linkdb"
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linksapi-service
+spec:
+  selector:
+    app: linksapi
+  ports:
+  - port: 80
+    targetPort: 8010
+  type: ClusterIP
+```
+
 ### Example
 ```sh
 docker pull krisdevhub/globallinks:latest   

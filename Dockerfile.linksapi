@@ -1,0 +1,61 @@
+# Multi-stage build for minimal production image
+FROM golang:1.21-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o linksapi cmd/linksapi/main.go
+
+# Production stage
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata wget
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+# Set working directory
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/linksapi .
+
+# Create directory for SSL certificates
+RUN mkdir -p cert && chown appuser:appgroup cert
+
+# Set environment variables with defaults
+ENV MONGO_HOST=localhost
+ENV MONGO_PORT=27017
+ENV MONGO_DATABASE=linkdb
+ENV MONGO_USERNAME=""
+ENV MONGO_PASSWORD=""
+ENV MONGO_AUTH_DB=admin
+ENV GO_ENV=development
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8010/api/health || exit 1
+
+# Expose ports
+EXPOSE 8010 8443
+
+# Run the application
+CMD ["./linksapi"]

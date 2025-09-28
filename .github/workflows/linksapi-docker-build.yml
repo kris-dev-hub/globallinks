@@ -1,0 +1,147 @@
+name: Build and Push LinkDB API Docker Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-linksapi
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        logout: false
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=tag
+          type=raw,value=latest,enable={{is_default_branch}}
+        labels: |
+          org.opencontainers.image.title=GlobalLinks LinkDB API
+          org.opencontainers.image.description=Go API for backlink search with MongoDB support and advanced filtering
+          org.opencontainers.image.url=https://github.com/${{ github.repository }}
+          org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          org.opencontainers.image.version=${{ github.ref_name }}
+          org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+          org.opencontainers.image.revision=${{ github.sha }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.linksapi
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Generate deployment info
+      run: |
+        echo "## 🚀 LinkDB API Deployment Information" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Quick Deploy (No Authentication):**" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "docker run -d \\" >> $GITHUB_STEP_SUMMARY
+        echo "  --name linksapi \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -p 8010:8010 \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_HOST=localhost \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_PORT=27017 \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_DATABASE=linkdb \\" >> $GITHUB_STEP_SUMMARY
+        echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**With MongoDB Authentication:**" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "docker run -d \\" >> $GITHUB_STEP_SUMMARY
+        echo "  --name linksapi \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -p 8010:8010 \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_HOST=your_mongo_host \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_PORT=27017 \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_DATABASE=linkdb \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_USERNAME=your_username \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_PASSWORD=your_password \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_AUTH_DB=admin \\" >> $GITHUB_STEP_SUMMARY
+        echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Production Mode (HTTPS):**" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "docker run -d \\" >> $GITHUB_STEP_SUMMARY
+        echo "  --name linksapi \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -p 8443:8443 \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -v /path/to/certs:/app/cert \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e GO_ENV=production \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_HOST=your_mongo_host \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_USERNAME=your_username \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_PASSWORD=your_password \\" >> $GITHUB_STEP_SUMMARY
+        echo "  -e MONGO_DATABASE=linkdb \\" >> $GITHUB_STEP_SUMMARY
+        echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Kubernetes Deployment:**" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`yaml" >> $GITHUB_STEP_SUMMARY
+        echo "apiVersion: apps/v1" >> $GITHUB_STEP_SUMMARY
+        echo "kind: Deployment" >> $GITHUB_STEP_SUMMARY
+        echo "metadata:" >> $GITHUB_STEP_SUMMARY
+        echo "  name: linksapi" >> $GITHUB_STEP_SUMMARY
+        echo "spec:" >> $GITHUB_STEP_SUMMARY
+        echo "  replicas: 2" >> $GITHUB_STEP_SUMMARY
+        echo "  selector:" >> $GITHUB_STEP_SUMMARY
+        echo "    matchLabels:" >> $GITHUB_STEP_SUMMARY
+        echo "      app: linksapi" >> $GITHUB_STEP_SUMMARY
+        echo "  template:" >> $GITHUB_STEP_SUMMARY
+        echo "    metadata:" >> $GITHUB_STEP_SUMMARY
+        echo "      labels:" >> $GITHUB_STEP_SUMMARY
+        echo "        app: linksapi" >> $GITHUB_STEP_SUMMARY
+        echo "    spec:" >> $GITHUB_STEP_SUMMARY
+        echo "      containers:" >> $GITHUB_STEP_SUMMARY
+        echo "      - name: linksapi" >> $GITHUB_STEP_SUMMARY
+        echo "        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "        ports:" >> $GITHUB_STEP_SUMMARY
+        echo "        - containerPort: 8010" >> $GITHUB_STEP_SUMMARY
+        echo "        env:" >> $GITHUB_STEP_SUMMARY
+        echo "        - name: MONGO_HOST" >> $GITHUB_STEP_SUMMARY
+        echo "          value: \"your-mongodb-service\"" >> $GITHUB_STEP_SUMMARY
+        echo "        - name: MONGO_USERNAME" >> $GITHUB_STEP_SUMMARY
+        echo "          valueFrom:" >> $GITHUB_STEP_SUMMARY
+        echo "            secretKeyRef:" >> $GITHUB_STEP_SUMMARY
+        echo "              name: mongo-secret" >> $GITHUB_STEP_SUMMARY
+        echo "              key: username" >> $GITHUB_STEP_SUMMARY
+        echo "        - name: MONGO_PASSWORD" >> $GITHUB_STEP_SUMMARY
+        echo "          valueFrom:" >> $GITHUB_STEP_SUMMARY
+        echo "            secretKeyRef:" >> $GITHUB_STEP_SUMMARY
+        echo "              name: mongo-secret" >> $GITHUB_STEP_SUMMARY
+        echo "              key: password" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**API Endpoints:**" >> $GITHUB_STEP_SUMMARY
+        echo "- Health Check: \`GET http://localhost:8010/api/health\`" >> $GITHUB_STEP_SUMMARY
+        echo "- Domain Links: \`POST http://localhost:8010/api/links\`" >> $GITHUB_STEP_SUMMARY
