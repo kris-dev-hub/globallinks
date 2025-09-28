@@ -362,7 +362,7 @@ docker run -d \
   --name linksapi \
   -p 8010:8010 \
   -e MONGO_HOST=your_mongo_host \
-  -e MONGO_DATABASE=linkdb \
+  -e MONGO_DATABASE=linksdb \
   ghcr.io/kris-dev-hub/globallinks-linksapi:latest
 ```
 
@@ -374,8 +374,8 @@ docker run -d \
   -e MONGO_HOST=your_mongo_host \
   -e MONGO_USERNAME=your_username \
   -e MONGO_PASSWORD=your_password \
-  -e MONGO_DATABASE=linkdb \
-  -e MONGO_AUTH_DB=admin \
+  -e MONGO_DATABASE=linksdb \
+  -e MONGO_AUTH_DB=linksdb \
   ghcr.io/kris-dev-hub/globallinks-linksapi:latest
 ```
 
@@ -414,9 +414,9 @@ docker run -d \
   -p 8010:8010 \
   -e MONGO_HOST=192.168.1.105 \
   -e MONGO_USERNAME=linksuser \
-  -e MONGO_PASSWORD=Nft9Vyr94vKMVnif \
+  -e MONGO_PASSWORD=secret_pass \
   -e MONGO_DATABASE=linksdb \
-  -e MONGO_AUTH_DB=admin \
+  -e MONGO_AUTH_DB=linksdb \
   ghcr.io/kris-dev-hub/globallinks-linksapi:latest
 ```
 
